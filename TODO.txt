@@ -1,10 +1,10 @@
-download 1v1 ladder games (since 2015-10-01)
-set up db schema
-import games into db
-add important classifiers (income, armies, territories, etc.)
-filter out low ranked players?
-calculate win probabilities on all players, high ranked players
-compare results to elo expectation
-split in training, test, and verification segments
-apply ml techniques
-iterate on techniques
+TODO    download 1v1 ladder games (since 2015-09-27)
+DONE    set up db schema
+TODO    import games into db
+TODO    add important classifiers (income, armies, territories, etc.)
+TODO    filter out low ranked players?
+TODO    calculate win probabilities on all players, high ranked players
+TODO    compare results to elo expectation
+TODO    split in training, test, and verification segments
+TODO    apply ml techniques
+TODO    iterate on techniques

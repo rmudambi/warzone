@@ -1,14 +1,11 @@
-CREATE DATABASE warzone CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE warzone;
-
 -- LADDER TABLE
 CREATE TABLE ladder (
-	id TINYINT PRIMARY KEY,
-	name VARCHAR(255)
+	id SMALLINT PRIMARY KEY,
+	name VARCHAR(255) NOT NULL
 )
 
 -- FOG LEVELS TABLE
-CREATE TABLE fog_levels (
+CREATE TABLE fog_level (
 	id TINYINT AUTO_INCREMENT PRIMARY KEY,
 	json_id VARCHAR(15) NOT NULL,				-- value in json returned by api
 	name VARCHAR(15) NOT NULL
@@ -41,8 +38,9 @@ CREATE TABLE warzone_map (
 
 -- MAP TERRITORIES TABLE
 CREATE TABLE territory (
-	id INT PRIMARY KEY,
+	id INT AUTO_INCREMENT PRIMARY KEY,
 	map_id INT NOT NULL,
+	json_id SMALLINT NOT NULL,					-- value in json returned by api
 	name VARCHAR(255) NOT NULL,
 	FOREIGN KEY territory_ibfk_1(map_id)
 	REFERENCES warzone_map(id)
@@ -61,6 +59,7 @@ CREATE TABLE territory_connection (
 CREATE TABLE bonus (
 	id INT PRIMARY KEY,
 	map_id INT NOT NULL,
+	json_id SMALLINT NOT NULL,					-- value in json returned by api
 	name VARCHAR(255) NOT NULL,
 	value SMALLINT NOT NULL,
 	FOREIGN KEY bonus_ibfk_1(map_id)
@@ -82,7 +81,7 @@ CREATE TABLE template (
 	map_id INT NOT NULL,
 	is_multi_day BIT(1) NOT NULL,
 	fog_level_id TINYINT NOT NULL,
-	multi_attack BIT(1) NOT NULL,
+	is_multi_attack BIT(1) NOT NULL,
 	allow_percentage_attacks BIT(1) NOT NULL,
 	allow_transfer_only BIT(1) NOT NULL,
 	allow_attack_only BIT(1) NOT NULL,
@@ -118,10 +117,10 @@ CREATE TABLE template (
 	FOREIGN KEY template_ibfk_1(map_id)
 	REFERENCES warzone_map(id),
 	FOREIGN KEY template_ibfk_2(fog_level_id)
-	REFERENCES fog_levels(id)
+	REFERENCES fog_level(id)
 )
 
--- TEMPLATE OVERRIDEN BONUSES TABLE
+-- TEMPLATE OVERRIDDEN BONUSES TABLE
 CREATE TABLE template_overridden_bonus (
 	template_id INT NOT NULL,
 	bonus_id INT NOT NULL,
@@ -244,5 +243,3 @@ CREATE TABLE card_state (
 	FOREIGN KEY card_state_ibfk_3(card_id)
 	REFERENCES card(id)
 )
-
--- INSERT into fog_levels Foggy (Normal Fog), ModerateFog (Dense Fog), LightFog (Light Fog), (No Fog), (Heavy Fog), (Complete Fog)
