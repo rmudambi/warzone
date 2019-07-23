@@ -217,14 +217,14 @@ CREATE TABLE game_order (
 CREATE TABLE territory_state (
 	turn_id INT NOT NULL,
 	territory_id INT NOT NULL,
-	controlling_player_id INT,
+	player_id INT,
 	armies SMALLINT NOT NULL,
 	PRIMARY KEY(turn_id, territory_id),
 	FOREIGN KEY territory_state_ibfk_1(turn_id)
 	REFERENCES turn(id),
 	FOREIGN KEY territory_state_ibfk_2(territory_id)
 	REFERENCES territory(id),
-	FOREIGN KEY territory_state_ibfk_3(controlling_player_id)
+	FOREIGN KEY territory_state_ibfk_3(player_id)
 	REFERENCES player(id)
 )
 
@@ -234,7 +234,7 @@ CREATE TABLE card_state (
 	player_id INT NOT NULL,
 	card_id TINYINT NOT NULL,
 	completed_cards SMALLINT NOT NULL,
-	pieces_for_next_card SMALLINT NOT NULL,
+	pieces_until_next_card SMALLINT NOT NULL,
 	PRIMARY KEY(turn_id, player_id, card_id),
 	FOREIGN KEY card_state_ibfk_1(turn_id)
 	REFERENCES turn(id),
