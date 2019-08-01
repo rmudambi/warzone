@@ -1,12 +1,12 @@
 -- POPULATE FOG LEVEL TABLE
 INSERT INTO fog_level (json_id, name)
 VALUES
-	('PLACEHOLDER-1', 'No Fog'),			-- TODO: get proper value
+	('NoFog', 'No Fog'),
 	('LightFog', 'Light Fog'),
 	('Foggy', 'Normal Fog'),
 	('ModerateFog', 'Dense Fog'),
-	('PLACEHOLDER-2', 'Heavy Fog'),			-- TODO: get proper value
-	('PLACEHOLDER-3', 'Complete Fog');		-- TODO: get proper value
+	('VeryFoggy', 'Heavy Fog'),
+	('ExtremeFog', 'Complete Fog');
 
 -- POPULATE LADDER TABLE
 INSERT INTO ladder (id, name)

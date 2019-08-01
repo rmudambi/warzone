@@ -97,12 +97,8 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# IDEA project settings
-.idea
-
-# DBeaver project settings
-.project
-.dbeaver-data-sources.xml
+# VSCode project settings
+.vscode
 
 # mkdocs documentation
 /site
