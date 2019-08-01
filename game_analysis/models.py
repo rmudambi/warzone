@@ -185,8 +185,9 @@ class Game(models.Model):
     id = models.IntegerField(primary_key=True, editable=False)
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
-    player_a = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='player_a')
-    player_b = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='player_b')
+    players = models.ManyToManyField(Player)
+    # player_a = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='player_a')
+    # player_b = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='player_b')
     winner = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='winner', null=True, blank=True)
     number_of_turns = models.SmallIntegerField()
 
