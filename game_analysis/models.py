@@ -11,7 +11,7 @@ class Ladder(models.Model):
         return self.name
 
     def get_url(self):
-        return WARZONE_PATH + '/LadderSeason?ID=' + self.id
+        return WARZONE_PATH + '/LadderSeason?ID=' + str(self.id)
 
 
 
@@ -47,7 +47,7 @@ class Player(models.Model):
         return self.name
 
     def get_url(self):
-        return WARZONE_PATH + '/Profile?p=' + self.id
+        return WARZONE_PATH + '/Profile?p=' + str(self.id)
 
 
 class Map(models.Model):
@@ -58,7 +58,7 @@ class Map(models.Model):
         return self.name
 
     def get_url(self):
-        return WARZONE_PATH + '/SinglePlayer?PreviewMap=' + self.id
+        return WARZONE_PATH + '/SinglePlayer?PreviewMap=' + str(self.id)
 
 
 class Territory(models.Model):

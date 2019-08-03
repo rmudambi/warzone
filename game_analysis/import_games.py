@@ -1,6 +1,9 @@
-import api
 import json
-from game_analysis.models import Game, Player, Card
+import sys
+
+from . import api
+from .models import Game, Player, Card
+# todo move this into a view
 
 ADMIN_EMAIL = 'redacted'
 ADMIN_PASSWORD = 'redacted'
