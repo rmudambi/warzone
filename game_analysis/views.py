@@ -5,17 +5,19 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.views.generic import ListView
 
+from . import api, import_games
 from .models import Ladder
 from .forms import ImportLadderGamesForm
 
 GAME_ANALYSIS = 'game_analysis'
 
-def home(request):
+def home(request, message=None):
     return render(
         request,
         GAME_ANALYSIS + '/home.html',
         {
-            'date': datetime.now()
+            'date': datetime.now(),
+            'message': message
         }
     )
 
@@ -35,8 +37,19 @@ def import_ladder_games(request):
     if request.method == 'POST':
         form = ImportLadderGamesForm(request.POST)
         if form.is_valid():
-            # todo import games
-            return home(request)
+            email = form.cleaned_data['email']
+            password = form.cleaned_data['password']
+            ladder_id = form.cleaned_data['ladder_id']
+            max_results = form.cleaned_data['max_results']
+            offset = form.cleaned_data['offset']
+
+            # Get api token
+            api_token = api.get_api_token(email, password)
+
+            # Import games
+            import_games.import_ladder_games(email, api_token, ladder_id, max_results, offset)
+
+            return home(request, 'Successfully imported ' + str(max_results) + ' games.')
     else:
         form = ImportLadderGamesForm()
     

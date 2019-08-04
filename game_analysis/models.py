@@ -111,7 +111,7 @@ class Template(models.Model):
     id = models.IntegerField(primary_key=True, editable=False)
     map = models.ForeignKey(Map, on_delete=models.CASCADE)
     is_multi_day = models.BooleanField(default=True)
-    fog_level = models.ForeignKey(FogLevel, default='NoFog', on_delete=models.CASCADE)
+    fog_level = models.ForeignKey(FogLevel, default='Foggy', on_delete=models.CASCADE)
     is_multi_attack = models.BooleanField(default=False)
     allow_percentage_attacks = models.BooleanField(default=True)
     allow_attack_only = models.BooleanField(default=True)
@@ -123,7 +123,7 @@ class Template(models.Model):
     is_manual_distribution = models.BooleanField(default=True)
     distribution_mode = models.SmallIntegerField(default=-1)
     territory_limit = models.IntegerField()
-    in_distribution_armies = models.IntegerField(default=4)
+    initial_armies = models.IntegerField(default=4)
     out_distribution_neutrals = models.IntegerField(default=2)
     in_distribution_neutrals = models.IntegerField(default=4)
     wasteland_count = models.IntegerField()
@@ -176,6 +176,7 @@ class TemplateCardSetting(models.Model):
     weight = models.FloatField()
     mode = models.SmallIntegerField(null=True, blank=True)
     value = models.FloatField(null=True, blank=True)
+    duration = models.SmallIntegerField(null=True, blank=True)
 
     def __str__(self):
         return self.card
@@ -186,8 +187,6 @@ class Game(models.Model):
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     players = models.ManyToManyField(Player)
-    # player_a = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='player_a')
-    # player_b = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='player_b')
     winner = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='winner', null=True, blank=True)
     number_of_turns = models.SmallIntegerField()
 

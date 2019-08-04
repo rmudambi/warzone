@@ -1,0 +1,8 @@
+DONE    Connect to warzone api
+DONE    Choose ORM
+DONE    Create db schema
+DONE    Set up django web framework
+TODO    import ladder games - max offset for 1v1 ladder games should be 154850
+TODO    add additional useful metadata
+TODO    perform data analysis
+TODO    bootstrap/iterate/etc.

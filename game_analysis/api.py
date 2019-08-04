@@ -1,4 +1,5 @@
 import re
+from json import loads
 from urllib import parse, request
 
 WARZONE_COM = 'https://www.warzone.com'
@@ -11,7 +12,7 @@ def hit_api(api, params):
 
 
 # Access an API on Warzone with the given credentials
-def hit_api_with_auth(api, params, email, apitoken):
+def hit_api_with_auth(email, apitoken, api, params):
     prms = {'Email': email, 'APIToken': apitoken}
     prms.update(params)
 
@@ -26,7 +27,8 @@ def post_to_api(api, post_data):
 
 # Retrieve a user's api token using email and password
 def get_api_token(email, password):
-    return hit_api('/API/GetAPIToken', {'Email': email, 'Password': password})
+    api_token_response = hit_api('/API/GetAPIToken', {'Email': email, 'Password': password})
+    return loads(api_token_response)['APIToken']
 
 
 # Retrieve a page of game ids from the given ladder offset by input amount
@@ -39,6 +41,6 @@ def get_ladder_game_ids(ladder_id, offset, max_results=50):
 
 
 # Retrieve game data
-def get_game_data_from_id(game_id, email, api_token):
-    return hit_api_with_auth('/API/GameFeed?GameID=' + str(game_id) + '&GetHistory=true&GetSettings=true', {}, email,
-                             api_token)
+def get_game_data_from_id(email, api_token, game_id):
+    return hit_api_with_auth(email, api_token, 
+            '/API/GameFeed?GameID=' + str(game_id) + '&GetHistory=true&GetSettings=true', {})
