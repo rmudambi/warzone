@@ -42,14 +42,16 @@ def import_ladder_games(request):
             ladder_id = form.cleaned_data['ladder_id']
             max_results = form.cleaned_data['max_results']
             offset = form.cleaned_data['offset']
+            halt_if_exists = form.cleaned_data['halt_if_exists']
+
 
             # Get api token
             api_token = api.get_api_token(email, password)
 
             # Import games
-            import_games.import_ladder_games(email, api_token, ladder_id, max_results, offset)
+            count = import_games.import_ladder_games(email, api_token, ladder_id, max_results, offset, halt_if_exists)
 
-            return home(request, 'Successfully imported ' + str(max_results) + ' games.')
+            return home(request, 'Successfully imported ' + str(count) + ' games.')
     else:
         form = ImportLadderGamesForm()
     

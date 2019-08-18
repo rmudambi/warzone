@@ -1,5 +1,5 @@
-import uuid
 from django.db import models
+from uuid import uuid4
 
 WARZONE_PATH = 'https://www.warzone.com'
 
@@ -24,8 +24,8 @@ class FogLevel(models.Model):
 
 
 class OrderType(models.Model):
-    id = models.SmallIntegerField(primary_key=True, editable=False)
-    name = models.CharField(max_length=31)
+    id = models.CharField(max_length=63, primary_key=True,)
+    name = models.CharField(max_length=63)
 
     def __str__(self):
         return self.name
@@ -38,16 +38,24 @@ class Card(models.Model):
     def __str__(self):
         return self.name
 
+    def get_order_type_id(self):
+        # TODO ideally this should be explictly tied to the values of OrderType
+        return 'GameOrderPlayCard' + self.name[:-5].replace(' ', '')
+
 
 class Player(models.Model):
     id = models.IntegerField(primary_key=True, editable=False)
     name = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.name
+        return str(self.id) + ':' + self.name
 
     def get_url(self):
         return WARZONE_PATH + '/Profile?p=' + str(self.id)
+    
+    # Get the id used in the games api
+    def get_api_id(self):
+        return int(str(self.id)[2:-2])
 
 
 class Map(models.Model):
@@ -62,7 +70,7 @@ class Map(models.Model):
 
 
 class Territory(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     map = models.ForeignKey(Map, on_delete=models.CASCADE)
     # value in json returned by api
     api_id = models.SmallIntegerField(editable=False)
@@ -75,16 +83,16 @@ class Territory(models.Model):
 class TerritoryConnection(models.Model):
     class Meta:
         unique_together = (('from_territory', 'to_territory'),)
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     from_territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
     to_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='+')
 
     def __str__(self):
-        return self.from_territory + ' to ' + self.to_territory
+        return self.from_territory.__str__() + ' to ' + self.to_territory.__str__()
 
 
 class Bonus(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     map = models.ForeignKey(Map, on_delete=models.CASCADE)
     # value in json returned by api
     api_id = models.SmallIntegerField(editable=False)
@@ -99,12 +107,12 @@ class BonusTerritory(models.Model):
     class Meta:
         unique_together = (('bonus', 'territory'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE)
     territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.bonus + '.' + self.territory
+        return self.bonus.__str__() + '.' + self.territory.__str__()
     
 
 class Template(models.Model):
@@ -127,11 +135,11 @@ class Template(models.Model):
     out_distribution_neutrals = models.IntegerField(default=2)
     in_distribution_neutrals = models.IntegerField(default=4)
     wasteland_count = models.IntegerField()
-    wasteland_size  = models.IntegerField(default=10),
+    wasteland_size  = models.IntegerField(default=10)
     is_commerce = models.BooleanField(default=False)
     has_commanders = models.BooleanField(default=False)
     is_one_army_stand_guard = models.BooleanField(default=True)
-    base_income = models.IntegerField(default=5),
+    base_income = models.IntegerField(default=5)
     luck_modifier = models.FloatField(default=0.0)
     is_straight_round = models.BooleanField(default=True)
     bonus_army_per = models.SmallIntegerField(null=True, blank=True)
@@ -147,27 +155,27 @@ class Template(models.Model):
     uses_mods = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.map + '-' + self.id
+        return self.map.__str__() + '-' + str(self.id)
 
 
 class TemplateOverriddenBonus(models.Model):
     class Meta:
         unique_together = (('template', 'bonus'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE)
     new_value = models.SmallIntegerField()
 
     def __str__(self):
-        return self.bonus
+        return self.bonus.__str__()
 
 
 class TemplateCardSetting(models.Model):
     class Meta:
         unique_together = (('template', 'card'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     card = models.ForeignKey(Card, on_delete=models.CASCADE)
     number_of_pieces = models.SmallIntegerField()
@@ -179,7 +187,7 @@ class TemplateCardSetting(models.Model):
     duration = models.SmallIntegerField(null=True, blank=True)
 
     def __str__(self):
-        return self.card
+        return self.card.__str__()
 
 
 class Game(models.Model):
@@ -198,36 +206,40 @@ class Turn(models.Model):
     class Meta:
         unique_together = (('game', 'turn_number'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
     turn_number = models.SmallIntegerField()
-    commit_date_time = models.DateTimeField()
+    commit_date_time = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return self.game + ': Turn ' + self.turn_number
+        return self.game.__str__() + ': Turn ' + str(self.turn_number)
 
 
 class Order(models.Model):
     class Meta:
         unique_together = (('turn', 'order_number'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
     order_number = models.SmallIntegerField()
     order_type = models.ForeignKey(OrderType, on_delete=models.CASCADE)
     player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='player')
+    armies = models.SmallIntegerField(blank=True, null=True)
     # in an attack/transfer/airlift this is the "from"
-    primary_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='primary_territory')
+    primary_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='primary_territory', 
+            null=True, blank=True)
     # in an attack/transfer/airlift this is the "to"
-    secondary_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='secondary_territory')
-    target_player = models.ForeignKey(Player, on_delete=models.CASCADE, null=True, blank=True, related_name='target_player')
+    secondary_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='secondary_territory', 
+            null=True, blank=True)
+    target_player = models.ForeignKey(Player, on_delete=models.CASCADE, null=True, blank=True,
+            related_name='target_player')
+    target_bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return self.turn + ' - ' + self.order_number
+        return self.turn.__str__() + ' - ' + str(self.order_number) + ":" + self.order_type.__str__()
 
 
 class AttackTransferOrder(Order):
-    attack_size = models.SmallIntegerField()
     attack_transfer = models.CharField(max_length=15, null=True, blank=True)
     is_attack_teammates = models.BooleanField(default=False)
     is_attack_by_percent = models.BooleanField(default=False)
@@ -237,7 +249,7 @@ class AttackTransferOrder(Order):
 
 
 class AttackResult(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     attack_transfer_order = models.ForeignKey(AttackTransferOrder, on_delete=models.CASCADE, unique=True)
     is_attack = models.BooleanField()
     is_successful = models.BooleanField()
@@ -248,28 +260,28 @@ class AttackResult(models.Model):
     defense_luck = models.FloatField()
 
     def __str__(self):
-        return self.attack_transfer_order
+        return 'Result:' + self.attack_transfer_order.__str__()
 
 
 class TerritoryState(models.Model):
     class Meta:
         unique_together = (('turn', 'territory'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
     territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
     armies = models.SmallIntegerField()
 
     def __str__(self):
-        return self.turn + ' - ' + self.territory
+        return self.turn.__str__() + ' - ' + self.territory.__str__()
 
 
 class CardState(models.Model):
     class Meta:
-        unique_together = (('turn', 'card'),)
+        unique_together = (('turn', 'card', 'player'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
     card = models.ForeignKey(Card, on_delete=models.CASCADE)
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
@@ -277,4 +289,4 @@ class CardState(models.Model):
     pieces_until_next_card = models.SmallIntegerField()
 
     def __str__(self):
-        return self.turn + ' - ' + self.card
+        return self.turn.__str__() + str(self.player.id) + ' - ' + self.card.__str__()
