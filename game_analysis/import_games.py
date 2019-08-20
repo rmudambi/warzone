@@ -10,21 +10,42 @@ from .models import AttackResult, AttackTransferOrder, Bonus, BonusTerritory, Ca
 from .models import Order, OrderType, Player, Template, TemplateCardSetting, TemplateOverriddenBonus, Territory
 from .models import TerritoryConnection, TerritoryState, Turn
 
-# TODO add these initializers
+
 # Dictionary from card id -> card
 cards = {}
+
 # Dictionary from card order type id -> order type
 order_types = {}
+
 # Neutral and AvailableForDistribution "Players"
 neutral_players = {}
 
 # Dictionary from template id -> (template, {card id -> card settings})
 templates_cards_settings = {}
+
 # Dictionary from map id-> (map, {territory api id -> territory})
 maps_territories = {}
 
 # Dictionary from player api id -> player
 players_by_api_id = {}
+
+
+# Get Card
+def get_card(id=id):
+    try:
+        return cards[id]
+    except KeyError:
+        cards[id] = Card.objects.get(pk=id)
+        return cards[id]
+
+
+# Get OrderType
+def get_order_type(id=id):
+    try:
+        return order_types[id]
+    except KeyError:
+        order_types[id] = OrderType.objects.get(pk=id)
+        return order_types[id]
 
 
 # Fetches Player from DB if it exists.
@@ -154,68 +175,68 @@ def import_card_settings(template, settings_node):
     bomb_card_node = settings_node['BombCard']
 
     if reinforcement_card_node != 'none':
-        reinforcement_card = get_card_settings(template, Card.objects.get(pk=1), reinforcement_card_node)
+        reinforcement_card = get_card_settings(template, get_card(1), reinforcement_card_node)
         # TODO support other reinforcement card modes - not needed for most (all?) strategic templates
         reinforcement_card.mode = reinforcement_card_node['Mode']
         reinforcement_card.value = reinforcement_card_node['FixedArmies']
         reinforcement_card.save()
 
     if spy_card_node != 'none':
-        spy_card = get_card_settings(template, Card.objects.get(pk=2), spy_card_node)
+        spy_card = get_card_settings(template, get_card(2), spy_card_node)
         # TODO find node name for duration - not needed for most strategic templates
         # spy_card.duration = spy_card_node['Duration']
         spy_card.save()
 
     if abandon_card_node != 'none':
-        abandon_card = get_card_settings(template, Card.objects.get(pk=3), abandon_card_node)
+        abandon_card = get_card_settings(template, get_card(3), abandon_card_node)
         # TODO find node name for value - not needed for most (all?) strategic templates
         # abandon_card.value = abandon_card_node['MultiplyAmount']
         abandon_card.save()
 
     if op_card_node != 'none':
-        get_card_settings(template, Card.objects.get(pk=4), op_card_node).save()
+        get_card_settings(template, get_card(4), op_card_node).save()
 
     if od_card_node != 'none':
-        get_card_settings(template, Card.objects.get(pk=5), od_card_node).save()
+        get_card_settings(template, get_card(5), od_card_node).save()
 
     if airlift_card_node != 'none':
-        get_card_settings(template, Card.objects.get(pk=6), airlift_card_node).save()
+        get_card_settings(template, get_card(6), airlift_card_node).save()
 
     if gift_card_node != 'none':
-        get_card_settings(template, Card.objects.get(pk=7), gift_card_node).save()
+        get_card_settings(template, get_card(7), gift_card_node).save()
 
     if diplomacy_card_node != 'none':
-        diplomacy_card = get_card_settings(template, Card.objects.get(pk=8), diplomacy_card_node)
+        diplomacy_card = get_card_settings(template, get_card(8), diplomacy_card_node)
         # TODO find node namef or duration - not needed for most (all?) strategic templates
         # diplomacy_card.duration = diplomacy_card_node['Duration']
         diplomacy_card.save()
 
     if sanctions_card_node != 'none':
-        sanctions_card = get_card_settings(template, Card.objects.get(pk=9), sanctions_card_node)
+        sanctions_card = get_card_settings(template, get_card(9), sanctions_card_node)
         # TODO find node name for value and duration - not needed for most strategic templates
         # sanctions_card.value = spy_card_node['SanctionValue']
         # sanctions_card.duration = sanctions_card_node['Duration']
         sanctions_card.save()
 
     if reconnaissance_card_node != 'none':
-        reconnaissance_card = get_card_settings(template, Card.objects.get(pk=10), reconnaissance_card_node)
+        reconnaissance_card = get_card_settings(template, get_card(10), reconnaissance_card_node)
         # TODO find node name for duration - not needed for most strategic templates
         # reconnaissance_card.duration = reconnaissance_card_node['Duration']
         reconnaissance_card.save()
 
     if surveillance_card_node != 'none':
-        surveillance_card = get_card_settings(template, Card.objects.get(pk=11), surveillance_card_node)
+        surveillance_card = get_card_settings(template, get_card(11), surveillance_card_node)
         # TODO find node name for duration - not needed for most (all?) strategic templates
         # surveillance_card.duration = surveillance_card_node['Duration']
         surveillance_card.save()
 
     if blockade_card_node != 'none':
-        blockade_card = get_card_settings(template, Card.objects.get(pk=12), blockade_card_node)
+        blockade_card = get_card_settings(template, get_card(12), blockade_card_node)
         blockade_card.value = blockade_card_node['MultiplyAmount']
         blockade_card.save()
 
     if bomb_card_node != 'none':
-        get_card_settings(template, Card.objects.get(pk=13), bomb_card_node).save()
+        get_card_settings(template, get_card(13), bomb_card_node).save()
 
 
 # Fetches Template from imput template dictionary if it exists
@@ -320,7 +341,7 @@ def import_picks(game, picks_node, state_node, map_territories, template_cards_s
     turn = Turn(game=game, turn_number=-1)
     turn.save()
 
-    pick_type = OrderType.objects.get(pk='GameOrderPick')
+    pick_type = get_order_type('GameOrderPick')
     order_number = 0
 
     for player_number, player_node_key in enumerate(picks_node):
@@ -393,22 +414,22 @@ def import_cards_state(turn, order_nodes, template_cards_settings, current_cards
         elif order_node['type'].startswith('GameOrderPlayCard'):
             # Copy the current state, but update the uuid and turn and decrement current cards by one
             player_api_id = order_node['playerID']
-            order_type = order_node['type']
-            next_card_state = copy_previous_card_state(turn, current_cards_state[order_type][player_api_id])
+            card_order_type_id = order_node['type']
+            next_card_state = copy_previous_card_state(turn, current_cards_state[card_order_type_id][player_api_id])
             next_card_state.completed_cards -= 1
             # Save card state to dictionary
-            current_cards_state[order_type][player_api_id] = next_card_state
+            current_cards_state[card_order_type_id][player_api_id] = next_card_state
 
-    for card_id in current_cards_state:
-        for player_api_id in current_cards_state[card_id]:
+    for card_order_type_id in current_cards_state:
+        for player_api_id in current_cards_state[card_order_type_id]:
             # If current card state has the previous turn
-            if current_cards_state[card_id][player_api_id].turn.uuid != turn.uuid:
+            if current_cards_state[card_order_type_id][player_api_id].turn.uuid != turn.uuid:
                 # Copy the current state, but update the uuid and turn
                 current_cards_state[card_id][player_api_id] = copy_previous_card_state(turn, 
-                        current_cards_state[card_id][player_api_id])
+                        current_cards_state[card_order_type_id][player_api_id])
             
             # Save current card state to the DB
-            current_cards_state[card_id][player_api_id].save()
+            current_cards_state[card_order_type_id][player_api_id].save()
         
 
 # Import basic Order
@@ -416,7 +437,7 @@ def import_basic_order(turn, order_number, order_node):
     player_api_id = int(order_node['playerID'])
 
     order = Order(turn=turn, order_number=order_number)
-    order.order_type=OrderType(id=order_node['type'])
+    order.order_type=get_order_type(order_node['type'])
     order.player = players_by_api_id[player_api_id]
     order.save()
 
@@ -427,7 +448,7 @@ def import_deploy_order(turn, order_number, order_node, map_territories):
     territory_id = int(order_node['deployOn'])
 
     order = Order(turn=turn, order_number=order_number)
-    order.order_type=OrderType(id=order_node['type'])
+    order.order_type=get_order_type(order_node['type'])
     order.player = players_by_api_id[player_api_id]
     order.primary_territory = map_territories[territory_id]
     order.armies = order_node['armies']
@@ -441,7 +462,7 @@ def import_attack_transfer_order(turn, order_number, order_node, map_territories
     to_territory_id = int(order_node['to'])
 
     order = AttackTransferOrder(turn=turn, order_number=order_number)
-    order.order_type = OrderType(id=order_node['type'])
+    order.order_type = get_order_type(order_node['type'])
     order.player = players_by_api_id[player_api_id]
     order.primary_territory = map_territories[from_territory_id]
     order.secondary_territory = map_territories[to_territory_id]
@@ -470,7 +491,7 @@ def import_blockade_order(turn, order_number, order_node, map_territories):
     territory_id = int(order_node['targetTerritoryID'])
 
     order = Order(turn=turn, order_number=order_number)
-    order.order_type=OrderType(id=order_node['type'])
+    order.order_type=get_order_type(order_node['type'])
     order.player = players_by_api_id[player_api_id]
     order.primary_territory = map_territories[territory_id]
     order.save()
@@ -583,13 +604,10 @@ def import_game(email, api_token, game_id):
 
         game = Game(id=game_json['id'], name=game_json['name'], number_of_turns=game_json['numberOfTurns'])
         
-        # TODO change template_card_settings and map_territories from local to global variable
         game.template = get_template(game_json)
         game.save()
         
         add_players_to_game(game, game_json)
-        # TODO change and template_card_settings and map_territories from local to global variable
-        # import_turns(cache, game, game_json, maps_territories[game.template.map.id][1], templates_cards_settings[game.template.id][1])
         import_turns(game, game_json)
         
         game.save()
@@ -599,14 +617,13 @@ def import_game(email, api_token, game_id):
 # Imports max_results Games (and associated data) from the specified ladder starting from offset
 # For each Game, does nothing if the Game already exists
 def import_ladder_games(email, api_token, ladder_id, max_results, offset, halt_if_exists):
+    # Initialize neutral players
     neutral_players['Neutral'] = Player.objects.get(pk=0)
     neutral_players['AvailableForDistribution'] = Player.objects.get(pk=1)
     
     results_left_to_get = max_results
     imported_games_count = 0
 
-    # TODO Initialize cards and order_type objects
-    
     while 0 < results_left_to_get:
         # Retrieve game ids at offset
         game_ids = api.get_ladder_game_ids(ladder_id, offset, results_left_to_get)
