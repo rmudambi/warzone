@@ -3,6 +3,7 @@ import json
 import uuid
 
 from datetime import datetime
+from pytz import UTC
 
 from . import api
 from .models import AttackResult, AttackTransferOrder, Bonus, BonusTerritory, Card, CardState, FogLevel, Game, Map
@@ -548,7 +549,7 @@ def import_turns(game, game_json):
 
     for turn_number, turn_node in enumerate(turn_nodes):
         # create Turn object and set fields
-        commit_date_time = datetime.strptime(turn_node['date'], '%m/%d/%Y %H:%M:%S')
+        commit_date_time = datetime.strptime(turn_node['date'], '%m/%d/%Y %H:%M:%S').replace(tzinfo=UTC)
         turn = Turn(game=game, turn_number=turn_number, commit_date_time=commit_date_time)
         turn.save()
     
