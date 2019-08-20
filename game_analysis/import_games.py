@@ -667,6 +667,6 @@ def import_ladder_games(email, api_token, ladder_id, max_results, offset, games_
                 return imported_games_count
         
         results_left_to_get -= len(game_ids)
-        offset +=50
+        offset +=games_per_page
     
     return imported_games_count
