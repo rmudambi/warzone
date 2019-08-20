@@ -6,4 +6,4 @@ class ImportLadderGamesForm(forms.Form):
     ladder_id = forms.IntegerField(label='Ladder ID', initial=0, min_value=0, max_value=10000)
     max_results = forms.IntegerField(label='Max Results', initial=50, min_value=1)
     offset = forms.IntegerField(min_value=0, initial=0)
-    halt_if_exists = forms.BooleanField(initial=True)
+    halt_if_exists = forms.BooleanField(initial=True, required=False)

@@ -1,5 +1,6 @@
 import copy
 import json
+import logging
 import uuid
 
 from datetime import datetime
@@ -10,6 +11,8 @@ from .models import AttackResult, AttackTransferOrder, Bonus, BonusTerritory, Ca
 from .models import Order, OrderType, Player, Template, TemplateCardSetting, TemplateOverriddenBonus, Territory
 from .models import TerritoryConnection, TerritoryState, Turn
 
+# Set up logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s')
 
 # Dictionary from card id -> card
 cards = {}
@@ -65,6 +68,8 @@ def add_players_to_game(game, game_json):
     # Reset players by api id dictionary
     players_by_api_id.clear()
 
+    logging.debug(f'Adding Players to Game {game.id}')
+
     player_nodes = game_json['players']
     for player_node in player_nodes:
         player = get_player(player_node)
@@ -115,6 +120,7 @@ def import_bonuses(map, bonuses_node, territories):
 # Returns Map
 def get_map(map_node):
     map_id = int(map_node['id'])
+    logging.debug(f'Getting Map {map_id}')
     # If map is not in the dictionary
     if map_id not in maps_territories:
         try:
@@ -122,6 +128,7 @@ def get_map(map_node):
             map = Map.objects.get(pk=map_id)
         except Map.DoesNotExist:
             # Otherwise, create map and save it to the DB
+            logging.info(f'Creating Map {map_id}')
             map = Map(id=map_id, name=map_node['name'])
             map.save()
             
@@ -245,6 +252,7 @@ def import_card_settings(template, settings_node):
 # Returns Template
 def get_template(game_json):
     template_id = int(game_json['templateID'])
+    logging.debug(f'Getting Template {template_id}')
     # if template is not in the dictionary
     if template_id  not in templates_cards_settings:
         map = get_map(game_json['map'])
@@ -253,6 +261,7 @@ def get_template(game_json):
             template = Template.objects.get(pk=template_id)
         except Template.DoesNotExist:
             # Otherwise create template
+            logging.info(f'Creating Template {template_id}')
             template = Template(id=template_id, map=map)
 
             # Get Settings
@@ -425,7 +434,7 @@ def import_cards_state(turn, order_nodes, template_cards_settings, current_cards
             # If current card state has the previous turn
             if current_cards_state[card_order_type_id][player_api_id].turn.uuid != turn.uuid:
                 # Copy the current state, but update the uuid and turn
-                current_cards_state[card_id][player_api_id] = copy_previous_card_state(turn, 
+                current_cards_state[card_order_type_id][player_api_id] = copy_previous_card_state(turn, 
                         current_cards_state[card_order_type_id][player_api_id])
             
             # Save current card state to the DB
@@ -538,6 +547,7 @@ def import_orders(turn, order_nodes, map_territories):
 
 # Import Turns into the DB
 def import_turns(game, game_json):
+    logging.debug(f'Importing Turns for Game {game.id}')
     # Create list of turn nodes
     turn_nodes = []
     for key in game_json:
@@ -568,6 +578,9 @@ def import_turns(game, game_json):
     import_initial_state(game, game_json['distributionStanding'], map_territories)
     import_picks(game, picks_node, game_json['standing0'], map_territories, template_cards_settings, current_cards_state)
 
+    # TODO remove later - for optimization purposes
+    order_count = 0
+
     for turn_number, turn_node in enumerate(turn_nodes):
         # create Turn object and set fields
         commit_date_time = datetime.strptime(turn_node['date'], '%m/%d/%Y %H:%M:%S').replace(tzinfo=UTC)
@@ -578,16 +591,24 @@ def import_turns(game, game_json):
         import_territories_state(standing_nodes[turn_number], turn, map_territories)
         import_cards_state(turn, turn_node['orders'], template_cards_settings, current_cards_state)
 
+        # TODO remove later - for optimization purposes
+        order_count += len(turn_node['orders'])
+
+    logging.debug(f'Imported {game.number_of_turns} Turns and {order_count} Orders.')
+
     
 # Imports a Game into with the given ID into the DB along with associated data if they do not yet exist
 # Does nothing if the Game already exists
 # Returns True if the Game is imported and False otherwise
 def import_game(email, api_token, game_id):
+    logging.debug(f'Importing game {game_id}')
     try:
         # Check if Game already exists
         Game.objects.get(pk=game_id)
+        logging.debug(f'Game {game_id} already exists.')
         return False
     except Game.DoesNotExist:
+        logging.debug(f'Retrieving Game {game_id} data from Warzone')
         # Retrieve Game data
         game_data = api.get_game_data_from_id(email, api_token, game_id)
         
@@ -596,10 +617,12 @@ def import_game(email, api_token, game_id):
 
         try:
             # Will throw KeyError if map node doesn't exist
+            # TODO this should be fixed by Fizzer soon
             game_json['map']
         except KeyError:
             # Map node doesn't exist, so game ended on turn -1
             # Ignore game, since it adds no value
+            logging.debug(f'Game {game_id} has no map node. Game ended on turn -1')
             return False
 
         game = Game(id=game_json['id'], name=game_json['name'], number_of_turns=game_json['numberOfTurns'])
@@ -611,21 +634,25 @@ def import_game(email, api_token, game_id):
         import_turns(game, game_json)
         
         game.save()
+        logging.debug(f'Finished importing Game {game_id}')
         return True
 
 
 # Imports max_results Games (and associated data) from the specified ladder starting from offset
 # For each Game, does nothing if the Game already exists
-def import_ladder_games(email, api_token, ladder_id, max_results, offset, halt_if_exists):
+def import_ladder_games(email, api_token, ladder_id, max_results, offset, games_per_page, halt_if_exists):
     # Initialize neutral players
+    logging.info('Initializing neutral players')
     neutral_players['Neutral'] = Player.objects.get(pk=0)
     neutral_players['AvailableForDistribution'] = Player.objects.get(pk=1)
     
     results_left_to_get = max_results
     imported_games_count = 0
 
+    logging.info(f'Retrieving {max_results} ladder games from ladder {ladder_id} starting at offset {offset}')
     while 0 < results_left_to_get:
         # Retrieve game ids at offset
+        logging.info(f'Retrieving {min(games_per_page, max_results)} game ids from ladder {ladder_id}: Offset {offset}')
         game_ids = api.get_ladder_game_ids(ladder_id, offset, results_left_to_get)
         
         # If game_ids empty break
@@ -640,5 +667,6 @@ def import_ladder_games(email, api_token, ladder_id, max_results, offset, halt_i
                 return imported_games_count
         
         results_left_to_get -= len(game_ids)
+        offset +=50
     
     return imported_games_count
