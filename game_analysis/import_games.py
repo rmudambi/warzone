@@ -1,21 +1,22 @@
-import copy
-import json
 import logging
-import uuid
 
+from copy import deepcopy
 from datetime import datetime
+from json import loads as json_loads
 from pytz import UTC
+from uuid import uuid4
 
 from . import api
-from .models import AttackResult, Bonus, BonusTerritory, Card, CardState, FogLevel, Game, Map, Order, OrderType, Player
-from .models import Template, TemplateCardSetting, TemplateOverriddenBonus, Territory, TerritoryConnection
-from .models import TerritoryState, Turn
+from .models import *
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s')
 
 # Dictionary from card id -> card
 cards = {}
+
+# Dictionary from player state id -> player state
+player_states = {}
 
 # Dictionary from card order type id -> order type
 order_types = {}
@@ -40,6 +41,15 @@ def get_card(id=id):
     except KeyError:
         cards[id] = Card.objects.get(pk=id)
         return cards[id]
+
+
+# Get Player State
+def get_player_state(id=id):
+    try:
+        return player_states[id]
+    except KeyError:
+        player_states[id] = PlayerState.objects.get(pk=id)
+        return player_states[id]
 
 
 # Get OrderType
@@ -67,18 +77,17 @@ def get_player(player_node):
 def add_players_to_game(game, game_json):
     # Reset players by api id dictionary
     players_by_api_id.clear()
+    game_players = []
 
     logging.debug(f'Adding Players to Game {game.id}')
 
     player_nodes = game_json['players']
     for player_node in player_nodes:
         player = get_player(player_node)
-        game.players.add(player)
         players_by_api_id[player.get_api_id()] = player
-
-        # Set Player as winner if they won the game
-        if player_node['state'] == 'Won':
-            game.winner = player
+        game_players.append(GamePlayer(game=game, player=player, end_state=get_player_state(player_node['state'])))
+    
+    GamePlayer.objects.bulk_create(game_players)
 
 
 # Import all territories to the DB for a given Map
@@ -387,8 +396,8 @@ def import_picks_turn(game, picks_node, state_node, map_territories, template_ca
 
 # Copy the current state, but update the uuid and turn
 def copy_previous_card_state(turn, previous_card_state):
-    next_card_state = copy.deepcopy(previous_card_state)
-    next_card_state.uuid = uuid.uuid4()
+    next_card_state = deepcopy(previous_card_state)
+    next_card_state.uuid = uuid4()
     next_card_state.turn = turn
     return next_card_state
 
@@ -482,7 +491,7 @@ def import_attack_transfer_order(turn, order_number, order_node, map_territories
     
     # Import AttackResult object
     result_node = order_node['result']
-    attack_result = AttackResult(attack_transfer_order=order)
+    attack_result = AttackResult(order=order)
     attack_result.is_attack = result_node['isAttack'] 
     attack_result.is_successful = result_node['isSuccessful']
     attack_result.attack_size = result_node['armies']
@@ -617,7 +626,7 @@ def import_game(email, api_token, game_id):
         game_data = api.get_game_data_from_id(email, api_token, game_id)
         
         # Parse Game data
-        game_json = json.loads(game_data)
+        game_json = json_loads(game_data)
 
         try:
             # Will throw KeyError if map node doesn't exist

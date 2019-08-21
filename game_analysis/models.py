@@ -23,6 +23,13 @@ class FogLevel(models.Model):
         return self.name
 
 
+class PlayerState(models.Model):
+    id = models.CharField(primary_key=True, max_length=25, editable=False)
+
+    def __str__(self):
+        return self.id
+
+
 class OrderType(models.Model):
     id = models.CharField(max_length=63, primary_key=True,)
     name = models.CharField(max_length=63)
@@ -88,7 +95,7 @@ class TerritoryConnection(models.Model):
     to_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='+')
 
     def __str__(self):
-        return self.from_territory.__str__() + ' to ' + self.to_territory.__str__()
+        return str(self.from_territory) + ' to ' + str(self.to_territory)
 
 
 class Bonus(models.Model):
@@ -112,7 +119,7 @@ class BonusTerritory(models.Model):
     territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.bonus.__str__() + '.' + self.territory.__str__()
+        return str(self.bonus) + '.' + str(self.territory)
     
 
 class Template(models.Model):
@@ -155,7 +162,7 @@ class Template(models.Model):
     uses_mods = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.map.__str__() + '-' + str(self.id)
+        return str(self.map) + '-' + str(self.id)
 
 
 class TemplateOverriddenBonus(models.Model):
@@ -168,7 +175,7 @@ class TemplateOverriddenBonus(models.Model):
     new_value = models.SmallIntegerField()
 
     def __str__(self):
-        return self.bonus.__str__()
+        return str(self.bonus)
 
 
 class TemplateCardSetting(models.Model):
@@ -187,19 +194,30 @@ class TemplateCardSetting(models.Model):
     duration = models.SmallIntegerField(null=True, blank=True)
 
     def __str__(self):
-        return self.card.__str__()
+        return str(self.card)
 
 
 class Game(models.Model):
     id = models.IntegerField(primary_key=True, editable=False)
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
-    players = models.ManyToManyField(Player)
-    winner = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='winner', null=True, blank=True)
     number_of_turns = models.SmallIntegerField()
 
     def __str__(self):
         return self.name
+
+
+class GamePlayer(models.Model):
+    class Meta:
+        unique_together = (('game', 'player'),)
+    
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE)
+    player = models.ForeignKey(Player, on_delete=models.CASCADE)
+    end_state = models.ForeignKey(PlayerState, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.game) + ':' + str(self.player)
 
 
 class Turn(models.Model):
@@ -212,7 +230,7 @@ class Turn(models.Model):
     commit_date_time = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return self.game.__str__() + ': Turn ' + str(self.turn_number)
+        return str(self.game) + ': Turn ' + str(self.turn_number)
 
 
 class Order(models.Model):
@@ -239,12 +257,12 @@ class Order(models.Model):
     is_attack_by_percent = models.BooleanField(null=True, blank=True)
 
     def __str__(self):
-        return self.turn.__str__() + ' - ' + str(self.order_number) + ":" + self.order_type.__str__()
+        return str(self.turn) + ' - ' + str(self.order_number) + ":" + str(self.order_type)
 
 
 class AttackResult(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    attack_transfer_order = models.ForeignKey(Order, on_delete=models.CASCADE, unique=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, unique=True)
     is_attack = models.BooleanField()
     is_successful = models.BooleanField()
     attack_size = models.SmallIntegerField()
@@ -254,7 +272,7 @@ class AttackResult(models.Model):
     defense_luck = models.FloatField()
 
     def __str__(self):
-        return 'Result:' + self.attack_transfer_order.__str__()
+        return 'Result:' + str(self.order)
 
 
 class TerritoryState(models.Model):
@@ -268,7 +286,7 @@ class TerritoryState(models.Model):
     armies = models.SmallIntegerField()
 
     def __str__(self):
-        return self.turn.__str__() + ' - ' + self.territory.__str__()
+        return str(self.turn) + ' - ' + str(self.territory)
 
 
 class CardState(models.Model):
@@ -283,4 +301,4 @@ class CardState(models.Model):
     pieces_until_next_card = models.SmallIntegerField()
 
     def __str__(self):
-        return self.turn.__str__() + str(self.player.id) + ' - ' + self.card.__str__()
+        return str(self.turn) + str(self.player.id) + ' - ' + str(self.card)

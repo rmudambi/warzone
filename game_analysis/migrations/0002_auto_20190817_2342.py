@@ -5,106 +5,142 @@ from django.db import models, migrations
 def generate_fog_levels(apps, schema_editor):
     FogLevel = apps.get_model('game_analysis', 'FogLevel')
     
-    FogLevel(id='NoFog', name='No Fog').save()
-    FogLevel(id='LightFog', name='Light Fog').save()
-    FogLevel(id='Foggy', name='Normal Fog').save()
-    FogLevel(id='ModerateFog', name='Dense Fog').save()
-    FogLevel(id='VeryFoggy', name='Heavy Fog').save()
-    FogLevel(id='ExtremeFog', name='Complete Fog').save()
+    fog_levels = [
+        FogLevel(id='NoFog', name='No Fog'),
+        FogLevel(id='LightFog', name='Light Fog'),
+        FogLevel(id='Foggy', name='Normal Fog'),
+        FogLevel(id='ModerateFog', name='Dense Fog'),
+        FogLevel(id='VeryFoggy', name='Heavy Fog'),
+        FogLevel(id='ExtremeFog', name='Complete Fog')
+    ]
+
+    FogLevel.objects.bulk_create(fog_levels)
 
 
 def generate_ladders(apps, schema_editor):
     Ladder = apps.get_model('game_analysis', 'Ladder')
 
-    Ladder(id=0, name='1 v 1 Ladder').save()
-    Ladder(id=1, name='2 v 2 Ladder').save()
-    Ladder(id=3, name='Real-Time Ladder').save()
-    Ladder(id=4, name='3 v 3 Ladder').save()
-    Ladder(id=4000, name='Season I').save()
-    Ladder(id=4001, name='Season II').save()
-    Ladder(id=4002, name='Season III').save()
-    Ladder(id=4003, name='Season IV').save()
-    Ladder(id=4004, name='Season V').save()
-    Ladder(id=4005, name='Season VI').save()
-    Ladder(id=4006, name='Season VII').save()
-    Ladder(id=4007, name='Season VIII').save()
-    Ladder(id=4008, name='Season IX').save()
-    Ladder(id=4009, name='Season X').save()
-    Ladder(id=4010, name='Season XI').save()
-    Ladder(id=4011, name='Season XII').save()
-    Ladder(id=4012, name='Season XIII').save()
-    Ladder(id=4013, name='Season XIV').save()
-    Ladder(id=4014, name='Season XV').save()
-    Ladder(id=4015, name='Season XVI').save()
-    Ladder(id=4016, name='Season XVII').save()
-    Ladder(id=4017, name='Season XVIII').save()
-    Ladder(id=4018, name='Season XIX').save()
-    Ladder(id=4019, name='Season XX').save()
-    Ladder(id=4020, name='Season XXI').save()
-    Ladder(id=4021, name='Season XXII').save()
-    Ladder(id=4022, name='Season XXIII').save()
-    Ladder(id=4023, name='Season XXIV').save()
-    Ladder(id=4024, name='Season XXV').save()
-    Ladder(id=4025, name='Season XXVI').save()
-    Ladder(id=4026, name='Season XXVII').save()
-    Ladder(id=4027, name='Season XXVIII').save()
-    Ladder(id=4028, name='Season XXIX').save()
-    Ladder(id=4029, name='Season XXX').save()
-    Ladder(id=4030, name='Season XXXI').save()
-    Ladder(id=4031, name='Season XXXII').save()
-    Ladder(id=4032, name='Season XXXIII').save()
-    Ladder(id=4065, name='Season XXXIV').save()
-    Ladder(id=4066, name='Season XXXV').save()
-    Ladder(id=4067, name='Season XXXVI').save()
-    Ladder(id=4068, name='Season XXXVII').save()
+    ladders = [
+        Ladder(id=0, name='1 v 1 Ladder'),
+        Ladder(id=1, name='2 v 2 Ladder'),
+        Ladder(id=3, name='Real-Time Ladder'),
+        Ladder(id=4, name='3 v 3 Ladder'),
+        Ladder(id=4000, name='Season I'),
+        Ladder(id=4001, name='Season II'),
+        Ladder(id=4002, name='Season III'),
+        Ladder(id=4003, name='Season IV'),
+        Ladder(id=4004, name='Season V'),
+        Ladder(id=4005, name='Season VI'),
+        Ladder(id=4006, name='Season VII'),
+        Ladder(id=4007, name='Season VIII'),
+        Ladder(id=4008, name='Season IX'),
+        Ladder(id=4009, name='Season X'),
+        Ladder(id=4010, name='Season XI'),
+        Ladder(id=4011, name='Season XII'),
+        Ladder(id=4012, name='Season XIII'),
+        Ladder(id=4013, name='Season XIV'),
+        Ladder(id=4014, name='Season XV'),
+        Ladder(id=4015, name='Season XVI'),
+        Ladder(id=4016, name='Season XVII'),
+        Ladder(id=4017, name='Season XVIII'),
+        Ladder(id=4018, name='Season XIX'),
+        Ladder(id=4019, name='Season XX'),
+        Ladder(id=4020, name='Season XXI'),
+        Ladder(id=4021, name='Season XXII'),
+        Ladder(id=4022, name='Season XXIII'),
+        Ladder(id=4023, name='Season XXIV'),
+        Ladder(id=4024, name='Season XXV'),
+        Ladder(id=4025, name='Season XXVI'),
+        Ladder(id=4026, name='Season XXVII'),
+        Ladder(id=4027, name='Season XXVIII'),
+        Ladder(id=4028, name='Season XXIX'),
+        Ladder(id=4029, name='Season XXX'),
+        Ladder(id=4030, name='Season XXXI'),
+        Ladder(id=4031, name='Season XXXII'),
+        Ladder(id=4032, name='Season XXXIII'),
+        Ladder(id=4065, name='Season XXXIV'),
+        Ladder(id=4066, name='Season XXXV'),
+        Ladder(id=4067, name='Season XXXVI'),
+        Ladder(id=4068, name='Season XXXVII')
+    ]
+
+    Ladder.objects.bulk_create(ladders)
 
 
 def generate_cards(apps, schema_editor):
     Card = apps.get_model('game_analysis', 'Card')
-    # TODO add order type to card?
-    Card(id=1, name='Reinforcement Card').save()
-    Card(id=2, name='Spy Card').save()
-    Card(id=3, name='Abandon Card').save()
-    Card(id=4, name='Order Priority Card').save()
-    Card(id=5, name='Order Delay Card').save()
-    Card(id=6, name='Airlift Card').save()
-    Card(id=7, name='Gift Card').save()
-    Card(id=8, name='Diplomacy Card').save()
-    Card(id=9, name='Sanctions Card').save()
-    Card(id=10, name='Reconnaissance Card').save()
-    Card(id=11, name='Surveillance Card').save()
-    Card(id=12, name='Blockade Card').save()
-    Card(id=13, name='Bomb Card').save()
+    
+    cards = [
+        Card(id=1, name='Reinforcement Card'),
+        Card(id=2, name='Spy Card'),
+        Card(id=3, name='Abandon Card'),
+        Card(id=4, name='Order Priority Card'),
+        Card(id=5, name='Order Delay Card'),
+        Card(id=6, name='Airlift Card'),
+        Card(id=7, name='Gift Card'),
+        Card(id=8, name='Diplomacy Card'),
+        Card(id=9, name='Sanctions Card'),
+        Card(id=10, name='Reconnaissance Card'),
+        Card(id=11, name='Surveillance Card'),
+        Card(id=12, name='Blockade Card'),
+        Card(id=13, name='Bomb Card')
+    ]
+
+    Card.objects.bulk_create(cards)
 
 
 def generate_order_types(apps, schema_editor):
     OrderType = apps.get_model('game_analysis', 'OrderType')
 
-    OrderType(id='GameOrderPick', name='Pick').save()
-    OrderType(id='GameOrderDeploy', name='Deploy').save()
-    OrderType(id='GameOrderAttackTransfer', name='Attack or Transfer').save()
-    OrderType(id='GameOrderReceiveCard', name='Receive Card Pieces').save()
-    OrderType(id='GameOrderStateTransition', name='Player State Change').save()
-    OrderType(id='GameOrderPlayCardReinforcement', name='Play Reinforcement Card').save()
-    OrderType(id='GameOrderPlayCardSpy', name='Play Spy Card').save()
-    OrderType(id='GameOrderPlayCardAbandon', name='Play Abandon Card').save()
-    OrderType(id='GameOrderPlayCardOrderPriority', name='Play Order Priority Card').save()
-    OrderType(id='GameOrderPlayCardOrderDelay', name='Play Order Delay Card').save()
-    OrderType(id='GameOrderPlayCardAirlift', name='Play Airlift Card').save()
-    OrderType(id='GameOrderPlayCardGift', name='Play Gift Card').save()
-    OrderType(id='GameOrderPlayCardDiplomacy', name='Play Diplomacy Card').save()
-    OrderType(id='GameOrderPlayCardSanctions', name='Play Sanctions Card').save()
-    OrderType(id='GameOrderPlayCardReconnaissance', name='Play Reconnaissance Card').save()
-    OrderType(id='GameOrderPlayCardSurveillance', name='Play Surveillance Card').save()
-    OrderType(id='GameOrderPlayCardBlockade', name='Play Blockade Card').save()
-    OrderType(id='GameOrderPlayCardBomb', name='Play Bomb Card').save()
+    order_types = [
+        OrderType(id='GameOrderPick', name='Pick'),
+        OrderType(id='GameOrderDeploy', name='Deploy'),
+        OrderType(id='GameOrderAttackTransfer', name='Attack or Transfer'),
+        OrderType(id='GameOrderReceiveCard', name='Receive Card Pieces'),
+        OrderType(id='GameOrderStateTransition', name='Player State Change'),
+        OrderType(id='GameOrderPlayCardReinforcement', name='Play Reinforcement Card'),
+        OrderType(id='GameOrderPlayCardSpy', name='Play Spy Card'),
+        OrderType(id='GameOrderPlayCardAbandon', name='Play Abandon Card'),
+        OrderType(id='GameOrderPlayCardOrderPriority', name='Play Order Priority Card'),
+        OrderType(id='GameOrderPlayCardOrderDelay', name='Play Order Delay Card'),
+        OrderType(id='GameOrderPlayCardAirlift', name='Play Airlift Card'),
+        OrderType(id='GameOrderPlayCardGift', name='Play Gift Card'),
+        OrderType(id='GameOrderPlayCardDiplomacy', name='Play Diplomacy Card'),
+        OrderType(id='GameOrderPlayCardSanctions', name='Play Sanctions Card'),
+        OrderType(id='GameOrderPlayCardReconnaissance', name='Play Reconnaissance Card'),
+        OrderType(id='GameOrderPlayCardSurveillance', name='Play Surveillance Card'),
+        OrderType(id='GameOrderPlayCardBlockade', name='Play Blockade Card'),
+        OrderType(id='GameOrderPlayCardBomb', name='Play Bomb Card')
+    ]
+
+    OrderType.objects.bulk_create(order_types)
 
 
 def generate_neutral_players(apps, schema_editor):
     Player = apps.get_model('game_analysis', 'Player')
 
-    Player(id=0, name='Neutral').save()
-    Player(id=1, name='AvailableForDistribution').save()
+    neutral_players = [
+        Player(id=0, name='Neutral'),
+        Player(id=1, name='AvailableForDistribution')
+    ]
+
+    Player.objects.bulk_create(neutral_players)
+
+
+def generate_player_states(apps, schema_editor):
+    PlayerState = apps.get_model('game_analysis', 'PlayerState')
+
+    player_states = [
+        PlayerState(id='Won'),
+        PlayerState(id='SurrenderAccepted'),
+        PlayerState(id='Booted'),
+        PlayerState(id='RemovedByHost'),
+        PlayerState(id='EndedByVote'),
+        PlayerState(id='Eliminated'),
+        PlayerState(id='Declined')
+    ]
+    
+    PlayerState.objects.bulk_create(player_states)
     
 
 class Migration(migrations.Migration):
@@ -119,5 +155,6 @@ class Migration(migrations.Migration):
         migrations.RunPython(generate_order_types),
         migrations.RunPython(generate_cards),
         migrations.RunPython(generate_neutral_players),
+        migrations.RunPython(generate_player_states),
     ]
     
