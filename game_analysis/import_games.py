@@ -7,9 +7,9 @@ from datetime import datetime
 from pytz import UTC
 
 from . import api
-from .models import AttackResult, AttackTransferOrder, Bonus, BonusTerritory, Card, CardState, FogLevel, Game, Map
-from .models import Order, OrderType, Player, Template, TemplateCardSetting, TemplateOverriddenBonus, Territory
-from .models import TerritoryConnection, TerritoryState, Turn
+from .models import AttackResult, Bonus, BonusTerritory, Card, CardState, FogLevel, Game, Map, Order, OrderType, Player
+from .models import Template, TemplateCardSetting, TemplateOverriddenBonus, Territory, TerritoryConnection
+from .models import TerritoryState, Turn
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s')
@@ -252,7 +252,6 @@ def import_card_settings(template, settings_node):
 # Returns Template
 def get_template(game_json):
     template_id = int(game_json['templateID'])
-    logging.debug(f'Getting Template {template_id}')
     # if template is not in the dictionary
     if template_id  not in templates_cards_settings:
         map = get_map(game_json['map'])
@@ -321,8 +320,8 @@ def get_template(game_json):
     return templates_cards_settings[template_id][0]
 
 
-# Import state of all territories
-def import_territories_state(standing_node, turn, map_territories):
+# Get state of all territories at the end of a given turn
+def get_territories_states(standing_node, turn, map_territories, territories_states):
     for territory_node in standing_node:
         territory_id = int(territory_node['terrID'])
         territory_state = TerritoryState(turn=turn, territory=map_territories[territory_id],
@@ -333,25 +332,26 @@ def import_territories_state(standing_node, turn, map_territories):
             territory_state.player = neutral_players[territory_owner]
         except KeyError:
             territory_state.player = players_by_api_id[int(territory_owner)]
-        territory_state.save()
+        territories_states.append(territory_state)
+    return territories_states
 
 
-# Import the Game's initial state
-def import_initial_state(game, distribution_node, map_territories):
+# Get initial state of all territories for the game
+def get_initial_territory_states(game, distribution_node, map_territories, territories_states):
     turn = Turn(game=game, turn_number=-2)
     turn.save()
 
     # Import the initial state of the territories
-    import_territories_state(distribution_node, turn, map_territories)
+    return get_territories_states(distribution_node, turn, map_territories, territories_states)
 
 
-# Import the picks
-def import_picks(game, picks_node, state_node, map_territories, template_cards_settings, current_cards_state):
+# Get the picks
+def import_picks_turn(game, picks_node, state_node, map_territories, template_cards_settings, orders,
+        territories_states, current_cards_state):
     turn = Turn(game=game, turn_number=-1)
     turn.save()
 
     pick_type = get_order_type('GameOrderPick')
-    order_number = 0
 
     for player_number, player_node_key in enumerate(picks_node):
         # Get Player from node by stripping the prefix ('player_') and looking up the id
@@ -359,13 +359,12 @@ def import_picks(game, picks_node, state_node, map_territories, template_cards_s
         player = players_by_api_id[player_api_id]
 
         for pick_number, pick in enumerate(picks_node[player_node_key]):
-            order = Order(turn=turn, order_number=order_number, order_type=pick_type, player=player, 
+            order = Order(turn=turn, order_number=len(orders), order_type=pick_type, player=player, 
                     primary_territory=map_territories[pick])
-            order.save()
-            order_number += 1
+            orders.append(order)
 
     # Import the state of the territories after picks
-    import_territories_state(state_node, turn, map_territories)
+    get_territories_states(state_node, turn, map_territories, territories_states)
 
     # Import initial state of the cards
     for card_id in template_cards_settings:
@@ -442,17 +441,17 @@ def import_cards_state(turn, order_nodes, template_cards_settings, current_cards
         
 
 # Import basic Order
-def import_basic_order(turn, order_number, order_node):
+def import_basic_order(turn, order_number, order_node, orders):
     player_api_id = int(order_node['playerID'])
 
     order = Order(turn=turn, order_number=order_number)
     order.order_type=get_order_type(order_node['type'])
     order.player = players_by_api_id[player_api_id]
-    order.save()
+    orders.append(order)
 
 
 # Import deploy Order
-def import_deploy_order(turn, order_number, order_node, map_territories):
+def import_deploy_order(turn, order_number, order_node, map_territories, orders):
     player_api_id = int(order_node['playerID'])
     territory_id = int(order_node['deployOn'])
 
@@ -461,16 +460,16 @@ def import_deploy_order(turn, order_number, order_node, map_territories):
     order.player = players_by_api_id[player_api_id]
     order.primary_territory = map_territories[territory_id]
     order.armies = order_node['armies']
-    order.save()
+    orders.append(order)
 
 
 # Import attack/transfer Order
-def import_attack_transfer_order(turn, order_number, order_node, map_territories):
+def import_attack_transfer_order(turn, order_number, order_node, map_territories, orders, attack_results):
     player_api_id = int(order_node['playerID'])
     from_territory_id = int(order_node['from'])
     to_territory_id = int(order_node['to'])
 
-    order = AttackTransferOrder(turn=turn, order_number=order_number)
+    order = Order(turn=turn, order_number=order_number)
     order.order_type = get_order_type(order_node['type'])
     order.player = players_by_api_id[player_api_id]
     order.primary_territory = map_territories[from_territory_id]
@@ -479,7 +478,7 @@ def import_attack_transfer_order(turn, order_number, order_node, map_territories
     order.attack_transfer = order_node['attackTransfer']
     order.is_attack_teammates = order_node['attackTeammates']
     order.is_attack_by_percent = order_node['byPercent']
-    order.save()
+    orders.append(order)
     
     # Import AttackResult object
     result_node = order_node['result']
@@ -491,11 +490,11 @@ def import_attack_transfer_order(turn, order_number, order_node, map_territories
     attack_result.defending_armies_killed = result_node['defendingArmiesKilled']
     attack_result.offense_luck = 0.0 if not result_node['offenseLuck'] else float(result_node['offenseLuck'])
     attack_result.defense_luck = 0.0 if not result_node['defenseLuck'] else float(result_node['defenseLuck'])
-    attack_result.save()
+    attack_results.append(attack_result)
 
 
 # Import blockade Order
-def import_blockade_order(turn, order_number, order_node, map_territories):
+def import_blockade_order(turn, order_number, order_node, map_territories, orders):
     player_api_id = int(order_node['playerID'])
     territory_id = int(order_node['targetTerritoryID'])
 
@@ -503,7 +502,7 @@ def import_blockade_order(turn, order_number, order_node, map_territories):
     order.order_type=get_order_type(order_node['type'])
     order.player = players_by_api_id[player_api_id]
     order.primary_territory = map_territories[territory_id]
-    order.save()
+    orders.append(order)
 
 
 # Import state transition Order
@@ -512,19 +511,20 @@ def import_state_transition_order(order, order_node):
     pass
 
 # Imports the Orders for a Turn
-def import_orders(turn, order_nodes, map_territories):
+def import_orders(turn, order_nodes, map_territories, orders, attack_results):
     for order_number, order_node in enumerate(order_nodes):
         order_node = order_nodes[order_number]
         if order_node['type'] == 'GameOrderDeploy':
-            import_deploy_order(turn, order_number, order_node, map_territories)
+            import_deploy_order(turn, order_number, order_node, map_territories, orders)
         elif order_node['type'] == 'GameOrderAttackTransfer':
-            import_attack_transfer_order(turn, order_number, order_node, map_territories)
+            import_attack_transfer_order(turn, order_number, order_node, map_territories, orders, attack_results)
         elif order_node['type'] in ['GameOrderReceiveCard', 'GameOrderStateTransition', 
                 'GameOrderPlayCardReinforcement', 'GameOrderPlayCardOrderPriority', 'GameOrderPlayCardOrderDelay']:
-            # TODO Confirm that this is sufficient for 'GameOrderStateTransition' (not needed for 1v1 games where ai does not take over)
-            import_basic_order(turn, order_number, order_node)
+            # TODO Confirm that this is sufficient for 'GameOrderStateTransition' 
+            # (not needed for 1v1 games where ai does not take over)
+            import_basic_order(turn, order_number, order_node, orders)
         elif order_node['type'] == 'GameOrderPlayCardBlockade':
-            import_blockade_order(turn, order_number, order_node, map_territories)
+            import_blockade_order(turn, order_number, order_node, map_territories, orders)
         elif order_node['type'] == 'GameOrderPlayCardSpy':
             # TODO not needed for 1v1 ladder
             pass
@@ -575,11 +575,13 @@ def import_turns(game, game_json):
         return
     
     # Import picks and initial game state
-    import_initial_state(game, game_json['distributionStanding'], map_territories)
-    import_picks(game, picks_node, game_json['standing0'], map_territories, template_cards_settings, current_cards_state)
+    orders = []
+    attack_results = []
+    territories_states = []
 
-    # TODO remove later - for optimization purposes
-    order_count = 0
+    get_initial_territory_states(game, game_json['distributionStanding'], map_territories, territories_states)
+    import_picks_turn(game, picks_node, game_json['standing0'], map_territories, template_cards_settings, orders,
+            territories_states, current_cards_state)
 
     for turn_number, turn_node in enumerate(turn_nodes):
         # create Turn object and set fields
@@ -587,14 +589,16 @@ def import_turns(game, game_json):
         turn = Turn(game=game, turn_number=turn_number, commit_date_time=commit_date_time)
         turn.save()
     
-        import_orders(turn, turn_node['orders'], map_territories)
-        import_territories_state(standing_nodes[turn_number], turn, map_territories)
+        import_orders(turn, turn_node['orders'], map_territories, orders, attack_results)
+        get_territories_states(standing_nodes[turn_number], turn, map_territories, territories_states)
         import_cards_state(turn, turn_node['orders'], template_cards_settings, current_cards_state)
 
-        # TODO remove later - for optimization purposes
-        order_count += len(turn_node['orders'])
+    # Save Orders and Territory States to DB
+    Order.objects.bulk_create(orders)
+    AttackResult.objects.bulk_create(attack_results)
+    TerritoryState.objects.bulk_create(territories_states)
 
-    logging.debug(f'Imported {game.number_of_turns} Turns and {order_count} Orders.')
+    logging.debug(f'Imported {game.number_of_turns} Turns, {len(orders)} Orders, and {len(territories_states)} Territory States.')
 
     
 # Imports a Game into with the given ID into the DB along with associated data if they do not yet exist

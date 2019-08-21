@@ -234,23 +234,17 @@ class Order(models.Model):
     target_player = models.ForeignKey(Player, on_delete=models.CASCADE, null=True, blank=True,
             related_name='target_player')
     target_bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE, null=True, blank=True)
+    attack_transfer = models.CharField(max_length=15, null=True, blank=True)
+    is_attack_teammates = models.BooleanField(null=True, blank=True)
+    is_attack_by_percent = models.BooleanField(null=True, blank=True)
 
     def __str__(self):
         return self.turn.__str__() + ' - ' + str(self.order_number) + ":" + self.order_type.__str__()
 
 
-class AttackTransferOrder(Order):
-    attack_transfer = models.CharField(max_length=15, null=True, blank=True)
-    is_attack_teammates = models.BooleanField(default=False)
-    is_attack_by_percent = models.BooleanField(default=False)
-
-    def __str__(self):
-        return super().__str__()
-
-
 class AttackResult(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    attack_transfer_order = models.ForeignKey(AttackTransferOrder, on_delete=models.CASCADE, unique=True)
+    attack_transfer_order = models.ForeignKey(Order, on_delete=models.CASCADE, unique=True)
     is_attack = models.BooleanField()
     is_successful = models.BooleanField()
     attack_size = models.SmallIntegerField()

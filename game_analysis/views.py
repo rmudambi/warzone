@@ -49,7 +49,7 @@ def import_ladder_games(request):
             api_token = api.get_api_token(email, password)
 
             # Import games
-            count = import_games.import_ladder_games(email, api_token, ladder_id, max_results, offset, halt_if_exists)
+            count = import_games.import_ladder_games(email, api_token, ladder_id, max_results, offset, 50, halt_if_exists)
 
             return home(request, 'Successfully imported ' + str(count) + ' games.')
     else:
