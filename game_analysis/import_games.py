@@ -10,7 +10,7 @@ from . import api
 from .models import *
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 # Dictionary from card id -> card
 cards = {}
