@@ -44,14 +44,20 @@ def import_ladder_games(request):
             offset = form.cleaned_data['offset']
             halt_if_exists = form.cleaned_data['halt_if_exists']
 
-
             # Get api token
             api_token = api.get_api_token(email, password)
 
-            # Import games
-            count = import_games.import_ladder_games(email, api_token, ladder_id, max_results, offset, 50, halt_if_exists)
+            start_time = datetime.now()
 
-            return home(request, 'Successfully imported ' + str(count) + ' games.')
+            # Import games
+            count = import_games.import_ladder_games(email, api_token, ladder_id, max_results, offset, 50, 
+                    halt_if_exists)
+
+            end_time = datetime.now()
+
+            message = f'Imported {str(count)} games out of {max_results}. Execution duration was {str(end_time - start_time)}'
+
+            return home(request, message)
     else:
         form = ImportLadderGamesForm()
     
