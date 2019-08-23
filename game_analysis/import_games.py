@@ -707,7 +707,7 @@ def import_game(email, api_token, game_id):
 
 # Imports max_results Games (and associated data) from the specified ladder starting from offset
 # For each Game, does nothing if the Game already exists
-def import_ladder_games(email, api_token, ladder_id, max_results, offset, games_per_page, halt_if_exists):
+def import_games(email, api_token, ladder_id, max_results, offset, games_per_page, halt_if_exists):
     # Initialize neutral players
     logging.info('Initializing neutral players')
     neutral_players['Neutral'] = Player.objects.get(pk=0)

@@ -5,9 +5,10 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.views.generic import ListView
 
-from . import api, import_games
-from .models import Ladder
+from .api import get_api_token
 from .forms import ImportLadderGamesForm
+from .import_games import import_games
+from .models import Ladder
 
 GAME_ANALYSIS = 'game_analysis'
 
@@ -45,12 +46,12 @@ def import_ladder_games(request):
             halt_if_exists = form.cleaned_data['halt_if_exists']
 
             # Get api token
-            api_token = api.get_api_token(email, password)
+            api_token = get_api_token(email, password)
 
             start_time = datetime.now()
 
             # Import games
-            count = import_games.import_ladder_games(email, api_token, ladder_id, max_results, offset, 50, 
+            count = import_games(email, api_token, ladder_id, max_results, offset, 50, 
                     halt_if_exists)
 
             end_time = datetime.now()
