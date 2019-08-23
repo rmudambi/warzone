@@ -674,7 +674,7 @@ def import_game(email, api_token, game_id):
         try:
             # Will throw KeyError if map node doesn't exist
             # TODO this should be fixed by Fizzer soon
-            game_json['map']
+            map = game_json['map']
         except KeyError:
             # Map node doesn't exist, so game ended on turn -1
             # Ignore game, since it adds no value
@@ -684,14 +684,20 @@ def import_game(email, api_token, game_id):
         game = Game(id=game_json['id'], name=game_json['name'], number_of_turns=game_json['numberOfTurns'])
         
         game.template = get_template(game_json)
-        game.save()
-        
-        add_players_to_game(game, game_json)
-        import_turns(game, game_json)
-        
-        game.save()
-        logging.debug(f'Finished importing Game {game_id}')
-        return True
+
+        if int(map['id']) != game.template.map.id:
+            # Map doesn't match the map in the template so the template has changed
+            # TODO add complete template compatibility checks
+            return False
+        else:
+            game.save()
+            
+            add_players_to_game(game, game_json)
+            import_turns(game, game_json)
+            
+            game.save()
+            logging.debug(f'Finished importing Game {game_id}')
+            return True
 
 
 # Imports max_results Games (and associated data) from the specified ladder starting from offset
