@@ -23,7 +23,7 @@ class FogLevel(models.Model):
         return self.name
 
 
-class PlayerState(models.Model):
+class PlayerStateType(models.Model):
     id = models.CharField(primary_key=True, max_length=25, editable=False)
 
     def __str__(self):
@@ -214,7 +214,7 @@ class GamePlayer(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
-    end_state = models.ForeignKey(PlayerState, on_delete=models.CASCADE)
+    end_state = models.ForeignKey(PlayerStateType, on_delete=models.CASCADE)
 
     def __str__(self):
         return str(self.game) + ':' + str(self.player)

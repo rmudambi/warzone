@@ -15,8 +15,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 # Dictionary from card id -> card
 cards = {}
 
-# Dictionary from player state id -> player state
-player_states = {}
+# Dictionary from player state type id -> player state types
+player_state_types = {}
 
 # Dictionary from card order type id -> order type
 order_types = {}
@@ -44,12 +44,12 @@ def get_card(id=id):
 
 
 # Get Player State
-def get_player_state(id=id):
+def get_player_state_type(id=id):
     try:
-        return player_states[id]
+        return player_state_types[id]
     except KeyError:
-        player_states[id] = PlayerState.objects.get(pk=id)
-        return player_states[id]
+        player_state_types[id] = PlayerStateType.objects.get(pk=id)
+        return player_state_types[id]
 
 
 # Get OrderType
@@ -85,7 +85,8 @@ def add_players_to_game(game, game_json):
     for player_node in player_nodes:
         player = get_player(player_node)
         players_by_api_id[player.get_api_id()] = player
-        game_players.append(GamePlayer(game=game, player=player, end_state=get_player_state(player_node['state'])))
+        game_players.append(GamePlayer(game=game, player=player, 
+                end_state=get_player_state_type(player_node['state'])))
     
     GamePlayer.objects.bulk_create(game_players)
 
