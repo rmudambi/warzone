@@ -255,6 +255,7 @@ class Order(models.Model):
     attack_transfer = models.CharField(max_length=15, null=True, blank=True)
     is_attack_teammates = models.BooleanField(null=True, blank=True)
     is_attack_by_percent = models.BooleanField(null=True, blank=True)
+    card_id = models.CharField(max_length=64, blank=True, null=True)
 
     def __str__(self):
         return str(self.turn) + ' - ' + str(self.order_number) + ":" + str(self.order_type)

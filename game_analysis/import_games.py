@@ -510,6 +510,17 @@ def parse_attack_transfer_order(turn, order_number, order_node, map_territories,
     attack_result.offense_luck = 0.0 if not result_node['offenseLuck'] else float(result_node['offenseLuck'])
     attack_result.defense_luck = 0.0 if not result_node['defenseLuck'] else float(result_node['defenseLuck'])
     attack_results.append(attack_result)
+        
+
+# Parse basic play card Order
+def parse_basic_play_card_order(turn, order_number, order_node, orders):
+    player_api_id = int(order_node['playerID'])
+
+    order = Order(turn=turn, order_number=order_number)
+    order.order_type=get_order_type(order_node['type'])
+    order.player = players_by_api_id[player_api_id]
+    order.card_id = order_node['cardInstanceID']
+    orders.append(order)
 
 
 # Parse blockade Order
@@ -521,6 +532,7 @@ def parse_blockade_order(turn, order_number, order_node, map_territories, orders
     order.order_type=get_order_type(order_node['type'])
     order.player = players_by_api_id[player_api_id]
     order.primary_territory = map_territories[territory_id]
+    order.card_id = order_node['cardInstanceID']
     orders.append(order)
 
 
@@ -528,6 +540,7 @@ def parse_blockade_order(turn, order_number, order_node, map_territories, orders
 def import_state_transition_order(order, order_node):
     # TODO implement state transitions (not needed for 1v1 games where ai does not take over)
     pass
+
 
 # Parses the Orders for a Turn
 def parse_orders(turn, order_nodes, map_territories, orders, attack_results):
@@ -537,11 +550,13 @@ def parse_orders(turn, order_nodes, map_territories, orders, attack_results):
             parse_deploy_order(turn, order_number, order_node, map_territories, orders)
         elif order_node['type'] == 'GameOrderAttackTransfer':
             parse_attack_transfer_order(turn, order_number, order_node, map_territories, orders, attack_results)
-        elif order_node['type'] in ['GameOrderReceiveCard', 'GameOrderStateTransition', 
-                'GameOrderPlayCardReinforcement', 'GameOrderPlayCardOrderPriority', 'GameOrderPlayCardOrderDelay']:
+        elif order_node['type'] in ['GameOrderReceiveCard', 'GameOrderStateTransition']:
             # TODO Confirm that this is sufficient for 'GameOrderStateTransition' 
             # (not needed for 1v1 games where ai does not take over)
             parse_basic_order(turn, order_number, order_node, orders)
+        elif order_node['type'] in ['GameOrderPlayCardReinforcement', 'GameOrderPlayCardOrderPriority', 
+                'GameOrderPlayCardOrderDelay']:
+            parse_basic_play_card_order(turn, order_number, order_node, orders)
         elif order_node['type'] == 'GameOrderPlayCardBlockade':
             parse_blockade_order(turn, order_number, order_node, map_territories, orders)
         elif order_node['type'] == 'GameOrderPlayCardSpy':
@@ -560,6 +575,9 @@ def parse_orders(turn, order_nodes, map_territories, orders, attack_results):
             # TODO not needed for 1v1 ladder
             pass
         elif order_node['type'] == 'GameOrderPlayCardSanctions':
+            # TODO not needed for 1v1 ladder
+            pass
+        elif order_node['type'] == 'ActiveCardWoreOff':
             # TODO not needed for 1v1 ladder
             pass
 

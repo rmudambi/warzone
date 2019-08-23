@@ -110,7 +110,8 @@ def generate_order_types(apps, schema_editor):
         OrderType(id='GameOrderPlayCardReconnaissance', name='Play Reconnaissance Card'),
         OrderType(id='GameOrderPlayCardSurveillance', name='Play Surveillance Card'),
         OrderType(id='GameOrderPlayCardBlockade', name='Play Blockade Card'),
-        OrderType(id='GameOrderPlayCardBomb', name='Play Bomb Card')
+        OrderType(id='GameOrderPlayCardBomb', name='Play Bomb Card'),
+        OrderType(id='ActiveCardWoreOff', name='Active Card Wore Off')
     ]
 
     OrderType.objects.bulk_create(order_types)
