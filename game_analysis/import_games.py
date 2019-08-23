@@ -348,16 +348,21 @@ def get_template(game_json):
 # Parse state of all territories at the end of a given turn
 def parse_territories_states(standing_node, turn, map_territories, territories_states):
     for territory_node in standing_node:
-        territory_id = int(territory_node['terrID'])
-        territory_state = TerritoryState(turn=turn, territory=map_territories[territory_id],
-                armies=territory_node['armies'])
         # Territory owner is Neutral, AvailableForDistribution (only in DistributionStanding), or a Player
         territory_owner = territory_node['ownedBy']
-        try:
-            territory_state.player = neutral_players[territory_owner]
-        except KeyError:
-            territory_state.player = players_by_api_id[int(territory_owner)]
-        territories_states.append(territory_state)
+        territory_armies = territory_node['armies']
+
+        # Only add Territory State if the territory is not a neutral with 2 armies on it
+        # TODO handle case where base neutrals is not 2 (not needed for 1v1 ladder)
+        if 'Neutral' != territory_owner or 2 != territory_armies:
+            territory_id = int(territory_node['terrID'])
+            territory_state = TerritoryState(turn=turn, territory=map_territories[territory_id],
+                    armies=territory_armies)
+            try:
+                territory_state.player = neutral_players[territory_owner]
+            except KeyError:
+                territory_state.player = players_by_api_id[int(territory_owner)]
+            territories_states.append(territory_state)
     return territories_states
 
 
