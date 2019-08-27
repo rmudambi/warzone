@@ -1,3 +1,5 @@
+import logging
+
 from json import loads
 from re import findall
 from urllib import error, parse, request
@@ -22,11 +24,14 @@ def hit_api_with_auth(email, apitoken, api, params):
 # Perform a POST request to Warzone
 def post_to_api(api, post_data, retry_number=0):
     try:
-        req = request.Request(WARZONE_COM + api, data=post_data)
+        url = WARZONE_COM + api
+        logging.debug(f'Posting to {url}')
+        req = request.Request(url, data=post_data)
         with request.urlopen(req) as response:
             return response.read()
-    except error.URLError:
+    except error.URLError as e:
         if retry_number < 5:
+            logging.warn(f'Error posting to {url}', exc_info=1)
             return post_to_api(api, post_data, retry_number + 1)
         else:
             raise
