@@ -29,19 +29,23 @@ def post_to_api(api, post_data, retry_number=0):
         req = request.Request(url, data=post_data)
         with request.urlopen(req) as response:
             return response.read()
-    except error.URLError as e:
-        if retry_number < 5:
-            logging.warn(f'Error posting to {url}', exc_info=1)
+    except error.URLError:
+        if retry_number < 2:
+            logging.warn(f'Error posting to {url}')
             return post_to_api(api, post_data, retry_number + 1)
         else:
+            logging.error(f'Error posting to {url}')
             raise
 
 
 
 # Retrieve a user's api token using email and password
 def get_api_token(email, password):
-    api_token_response = hit_api('/API/GetAPIToken', {'Email': email, 'Password': password})
-    return loads(api_token_response)['APIToken']
+    try:
+        api_token_response = hit_api('/API/GetAPIToken', {'Email': email, 'Password': password})
+        return loads(api_token_response)['APIToken']
+    except error.URLError as e:
+        raise error.URLError(reason='Error getting API Token')
 
 
 # Retrieve a page of game ids from the given ladder offset by input amount

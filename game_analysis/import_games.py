@@ -4,6 +4,7 @@ from copy import deepcopy
 from datetime import datetime
 from json import loads as json_loads
 from pytz import UTC
+from urllib.error import URLError
 from uuid import uuid4
 
 from . import api
@@ -11,8 +12,7 @@ from . import cache
 from .models import *
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(message)s')
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 # Fetches Player from DB if it exists.
 # Otherwise creates Player from Node and saves it to DB
@@ -584,7 +584,7 @@ def import_turns(game, game_json):
 # Imports a Game into with the given ID into the DB along with associated data if they do not yet exist
 # Does nothing if the Game already exists
 # Returns True if the Game is imported and False otherwise
-def import_game(email, api_token, game_id):
+def import_game(email, api_token, game_id, imported_games_count):
     logging.debug(f'Importing game {game_id}')
     try:
         # Check if Game already exists
@@ -593,9 +593,13 @@ def import_game(email, api_token, game_id):
         return False
     except Game.DoesNotExist:
         logging.debug(f'Retrieving Game {game_id} data from Warzone')
-        # Retrieve Game data
-        game_data = api.get_game_data_from_id(email, api_token, game_id)
         
+        # Retrieve Game data
+        try:
+            game_data = api.get_game_data_from_id(email, api_token, game_id)
+        except URLError as e:
+            raise URLError(f'Connection failed getting game data for game {game_id} after importing {imported_games_count} games.') from e
+
         # Parse Game data
         game_json = json_loads(game_data)
 
@@ -642,7 +646,11 @@ def import_games(email, api_token, ladder_id, max_results, offset, games_per_pag
     while 0 < results_left_to_get:
         # Retrieve game ids at offset
         logging.info(f'Retrieving {min(games_per_page, max_results)} game ids from ladder {ladder_id}: Offset {offset}')
-        game_ids = api.get_ladder_game_ids(ladder_id, offset, results_left_to_get)
+
+        try:
+            game_ids = api.get_ladder_game_ids(ladder_id, offset, results_left_to_get)
+        except URLError as e:
+            raise URLError(f'Connection failed getting ladder games at offset {offset} after importing {imported_games_count} games.') from e
         
         # If game_ids empty break
         if not game_ids:
@@ -650,7 +658,7 @@ def import_games(email, api_token, ladder_id, max_results, offset, games_per_pag
         
         # Import each game if it does not yet exist
         for game_id in game_ids:
-            if import_game(email, api_token, game_id):
+            if import_game(email, api_token, game_id, imported_games_count):
                 imported_games_count += 1
             elif halt_if_exists:
                 return imported_games_count

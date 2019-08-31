@@ -1,4 +1,7 @@
+import logging
+
 from datetime import datetime
+from urllib.error import URLError
 
 from django.db import models
 from django.http import HttpResponse, HttpResponseRedirect
@@ -36,29 +39,35 @@ class LaddersListView(ListView):
 
 def import_ladder_games(request):
     if request.method == 'POST':
-        form = ImportLadderGamesForm(request.POST)
-        if form.is_valid():
-            email = form.cleaned_data['email']
-            password = form.cleaned_data['password']
-            ladder_id = form.cleaned_data['ladder_id']
-            max_results = form.cleaned_data['max_results']
-            offset = form.cleaned_data['offset']
-            halt_if_exists = form.cleaned_data['halt_if_exists']
+        try:
+            form = ImportLadderGamesForm(request.POST)
+            if form.is_valid():
+                email = form.cleaned_data['email']
+                password = form.cleaned_data['password']
+                ladder_id = form.cleaned_data['ladder_id']
+                max_results = form.cleaned_data['max_results']
+                offset = form.cleaned_data['offset']
+                halt_if_exists = form.cleaned_data['halt_if_exists']
 
-            # Get api token
-            api_token = get_api_token(email, password)
+                # Get api token
+                try:
+                    api_token = get_api_token(email, password)
+                except URLError:
+                    return home(request, 'Error getting API Token')
 
-            start_time = datetime.now()
+                start_time = datetime.now()
 
-            # Import games
-            count = import_games(email, api_token, ladder_id, max_results, offset, 50, 
-                    halt_if_exists)
+                # Import games
+                count = import_games(email, api_token, ladder_id, max_results, offset, 50, halt_if_exists)
 
-            end_time = datetime.now()
+                end_time = datetime.now()
 
-            message = f'Imported {str(count)} games out of {max_results}. Execution duration was {str(end_time - start_time)}'
+                message = f'Imported {str(count)} games out of {max_results}. Execution duration was {str(end_time - start_time)}'
 
-            return home(request, message)
+                return home(request, message)
+        except URLError as e:
+            logging.exception(e.reason)
+            return home(request, e.reason)
     else:
         form = ImportLadderGamesForm()
     
