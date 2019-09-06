@@ -12,6 +12,7 @@ from .api import get_api_token
 from .forms import ImportLadderGamesForm
 from .import_games import import_games
 from .models import Ladder
+from .sandbox import sandbox_method
 
 GAME_ANALYSIS = 'game_analysis'
 
@@ -72,3 +73,12 @@ def import_ladder_games(request):
         form = ImportLadderGamesForm()
     
     return render(request, GAME_ANALYSIS + '/import_ladder_games.html', {'form': form})
+
+
+def sandbox(request):
+    return render(request, 
+        GAME_ANALYSIS + '/sandbox.html', 
+        {
+            'message': sandbox_method()
+        }
+    )

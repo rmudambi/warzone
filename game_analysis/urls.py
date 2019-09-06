@@ -16,4 +16,5 @@ urlpatterns = [
     path('about', views.about, name='about'),
     path('ladders', ladders_list_view, name='ladders'),
     path('games/ladder/import', views.import_ladder_games, name='import_ladder_games'),
+    path('sandbox', views.sandbox, name='sandbox')
 ]
