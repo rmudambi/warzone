@@ -421,29 +421,30 @@ def parse_deploy_order(turn, order_number, order_node, territories, orders):
 
 
 # Parse attack/transfer Order
-def parse_attack_transfer_order(turn, order_number, order_node, territories, orders, attack_results):
+def parse_attack_transfer_order(turn, order_number, order_node, territories, orders, territory_claims):
     order = Order(turn=turn, order_number=order_number)
     order.order_type = cache.get_order_type(order_node['type'])
     order.player = cache.get_player(int(order_node['playerID']))
     order.primary_territory = territories[int(order_node['from'])]
     order.secondary_territory = territories[int(order_node['to'])]
     order.armies = order_node['numArmies']
-    order.attack_transfer = order_node['attackTransfer']
-    order.is_attack_teammates = order_node['attackTeammates']
-    order.is_attack_by_percent = order_node['byPercent']
     orders.append(order)
     
     # Parse AttackResult node
+    territory_claim = TerritoryClaim(order=order)
+    order.attack_transfer = order_node['attackTransfer']
+    order.is_attack_teammates = order_node['attackTeammates']
+    order.is_attack_by_percent = order_node['byPercent']
+    
     result_node = order_node['result']
-    attack_result = AttackResult(order=order)
-    attack_result.is_attack = result_node['isAttack'] 
-    attack_result.is_successful = result_node['isSuccessful']
-    attack_result.attack_size = result_node['armies']
-    attack_result.attacking_armies_killed = result_node['attackingArmiesKilled']
-    attack_result.defending_armies_killed = result_node['defendingArmiesKilled']
-    attack_result.offense_luck = 0.0 if not result_node['offenseLuck'] else float(result_node['offenseLuck'])
-    attack_result.defense_luck = 0.0 if not result_node['defenseLuck'] else float(result_node['defenseLuck'])
-    attack_results.append(attack_result)
+    territory_claim.is_attack = result_node['isAttack']
+    territory_claim.is_successful = result_node['isSuccessful']
+    territory_claim.attack_size = result_node['armies']
+    territory_claim.attacking_armies_killed = result_node['attackingArmiesKilled']
+    territory_claim.defending_armies_killed = result_node['defendingArmiesKilled']
+    territory_claim.offense_luck = 0.0 if not result_node['offenseLuck'] else float(result_node['offenseLuck'])
+    territory_claim.defense_luck = 0.0 if not result_node['defenseLuck'] else float(result_node['defenseLuck'])
+    territory_claims.append(territory_claim)
         
 
 # Parse basic play card Order
@@ -472,13 +473,13 @@ def import_state_transition_order(order, order_node):
 
 
 # Parses the Orders for a Turn
-def parse_orders(turn, order_nodes, territories, orders, attack_results):
+def parse_orders(turn, order_nodes, territories, orders, territory_claims):
     for order_number, order_node in enumerate(order_nodes):
         order_node = order_nodes[order_number]
         if order_node['type'] == 'GameOrderDeploy':
             parse_deploy_order(turn, order_number, order_node, territories, orders)
         elif order_node['type'] == 'GameOrderAttackTransfer':
-            parse_attack_transfer_order(turn, order_number, order_node, territories, orders, attack_results)
+            parse_attack_transfer_order(turn, order_number, order_node, territories, orders, territory_claims)
         elif order_node['type'] in ['GameOrderReceiveCard', 'GameOrderStateTransition']:
             # TODO Confirm that this is sufficient for 'GameOrderStateTransition' 
             # (not needed for 1v1 games where ai does not take over)
@@ -552,8 +553,9 @@ def import_turns(game, game_json):
     except KeyError:
         return
     
+    turns = []
     orders = []
-    attack_results = []
+    territory_claims = []
     territories_states = []
     cards_states = []           # List of card states at each turn: [{Card ID -> {Player ID -> Card State}}]
 
@@ -566,15 +568,17 @@ def import_turns(game, game_json):
         # create Turn object and set fields
         commit_date_time = datetime.strptime(turn_node['date'], '%m/%d/%Y %H:%M:%S').replace(tzinfo=UTC)
         turn = Turn(game=game, turn_number=turn_number, commit_date_time=commit_date_time)
-        turn.save()
     
-        parse_orders(turn, turn_node['orders'], territories, orders, attack_results)
+        parse_orders(turn, turn_node['orders'], territories, orders, territory_claims)
         parse_territories_states(standing_nodes[turn_number], turn, territories, territories_states)
         parse_cards_state(turn, turn_node['orders'], cards_settings, cards_states)
 
-    # Save Orders, Territory States, and Card States to DB
+        turns.append(turn)
+
+    # Save Turns, Orders, Territory States, and Card States to DB
+    Turn.objects.bulk_create(turns)
     Order.objects.bulk_create(orders)
-    AttackResult.objects.bulk_create(attack_results)
+    TerritoryClaim.objects.bulk_create(territory_claims)
     TerritoryState.objects.bulk_create(territories_states)
     import_cards_states(cards_states)
 
