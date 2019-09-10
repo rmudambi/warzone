@@ -53,6 +53,7 @@ class Card(models.Model):
 class Player(models.Model):
     id = models.IntegerField(primary_key=True, editable=False)
     name = models.CharField(max_length=255)
+    games = models.ManyToManyField('Game', through='GamePlayer')
 
     def __str__(self):
         return f'{self.id}:{self.name}'
@@ -82,21 +83,11 @@ class Territory(models.Model):
     # value in json returned by api
     api_id = models.SmallIntegerField(editable=False)
     name = models.CharField(max_length=255)
+    bonuses = models.ManyToManyField('bonus', through='BonusTerritory')
+    connected_territories = models.ManyToManyField('self')
 
     def __str__(self):
         return self.name
-
-
-class TerritoryConnection(models.Model):
-    class Meta:
-        unique_together = (('from_territory', 'to_territory'),)
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    from_territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
-    to_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, 
-            related_name='+')
-
-    def __str__(self):
-        return f'{self.from_territory} to {self.to_territory}'
 
 
 class Bonus(models.Model):
@@ -106,10 +97,11 @@ class Bonus(models.Model):
     api_id = models.SmallIntegerField(editable=False)
     name = models.CharField(max_length=255)
     base_value = models.SmallIntegerField()
+    territories = models.ManyToManyField(Territory, through='BonusTerritory')
 
     def __str__(self):
         return self.name
-
+    
 
 class BonusTerritory(models.Model):
     class Meta:
@@ -162,9 +154,17 @@ class Template(models.Model):
     card_playing_visible = models.BooleanField(default=False)
     card_visible = models.BooleanField(default=False)
     uses_mods = models.BooleanField(default=False)
+    overridden_bonuses = models.ManyToManyField(Bonus, through='TemplateOverriddenBonus')
+    card_settings = models.ManyToManyField(Card, through='TemplateCardSetting')
 
     def __str__(self):
         return f'{self.map}-{self.id}'
+
+    def get_bonus_value(self, bonus):
+        if bonus in self.overridden_bonuses:
+            return self.overridden_bonuses[bonus].new_value
+        else:
+            return bonus.base_value
 
 
 class TemplateOverriddenBonus(models.Model):
@@ -204,6 +204,9 @@ class Game(models.Model):
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     number_of_turns = models.SmallIntegerField()
+    players = models.ManyToManyField(Player, through='GamePlayer')
+    ladder = models.ForeignKey(Ladder, on_delete=models.CASCADE, null=True,
+            blank=True)
 
     def __str__(self):
         return self.name

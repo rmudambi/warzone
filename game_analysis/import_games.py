@@ -1,11 +1,9 @@
 import logging
 
-from copy import deepcopy
 from datetime import datetime
 from json import loads as json_loads
 from pytz import UTC
 from urllib.error import URLError
-from uuid import uuid4
 
 from . import api
 from . import cache
@@ -41,14 +39,16 @@ def add_players_to_game(game, game_json):
         player = get_player(player_node)
         
         end_state = cache.get_player_state_type(player_node['state'])
-        game_players.append(GamePlayer(game=game, player=player, 
+        game_players.append(
+            GamePlayer(game=game,
+                player=player, 
                 end_state=end_state))
     
     GamePlayer.objects.bulk_create(game_players)
 
 
 # Import all territories to the DB for a given Map
-# Return a Dictionary mapping api ids to Territries
+# Return a Dictionary mapping api ids to Territories
 def get_territories(map, territories_node):
     # Dictionary of Territory api_ids to Territories
     territories = {}
@@ -59,20 +59,21 @@ def get_territories(map, territories_node):
                 name=territory_node['name'])
         territories[territory.api_id] = territory
     
-    # Import all TerritoryConnections to the DB for each Territory in the Map
-    territory_connections = []
+    # Save Territories to DB
+    Territory.objects.bulk_create(list(territories.values()))
+
+    # Import connected territories to the DB for each Territory in the Map
+    Connections = Territory.connected_territories.through
+    connections = []
     for territory_node in territories_node:
         territory_id = int(territory_node['id'])
         territory = territories[territory_id]
-        for connection in territory_node['connectedTo']:
-            connection = TerritoryConnection(from_territory=territory, 
-                    to_territory=territories[connection])
-            territory_connections.append(connection)
+        for connection_id in territory_node['connectedTo']:
+            connections.append(
+                Connections(from_territory=territories[territory_id],
+                    to_territory=territories[connection_id]))
     
-    # Save Territories and Connections to DB
-    Territory.objects.bulk_create(list(territories.values()))
-    TerritoryConnection.objects.bulk_create(territory_connections)
-
+    Connections.objects.bulk_create(connections)
     return territories
 
 
@@ -565,7 +566,7 @@ def import_turns(game, game_json):
 # Imports a Game into with the given ID into the DB along with associated data
 # if they do not yet exist. Does nothing if the Game already exists.
 # Returns True if the Game is imported and False otherwise
-def import_game(email, api_token, game_id, imported_games_count):
+def import_game(email, api_token, game_id, imported_games_count, ladder=None):
     logging.debug(f'Importing game {game_id}')
     try:
         # Check if Game already exists
@@ -599,7 +600,7 @@ def import_game(email, api_token, game_id, imported_games_count):
             )
             return False
 
-        game = Game(id=game_json['id'], name=game_json['name'], 
+        game = Game(id=game_json['id'], name=game_json['name'], ladder=ladder,
                 number_of_turns=game_json['numberOfTurns'])
         
         game.template = get_template(game_json)
@@ -635,6 +636,9 @@ def import_games(email, api_token, ladder_id, max_results, offset,
         f'Retrieving {max_results} ladder games from ladder {ladder_id} '
         f'starting at offset {offset}'
     )
+
+    ladder = Ladder.objects.get(pk=ladder_id)
+
     while 0 < results_left_to_get:
         # Retrieve game ids at offset
         logging.info(
@@ -657,7 +661,8 @@ def import_games(email, api_token, ladder_id, max_results, offset,
         
         # Import each game if it does not yet exist
         for game_id in game_ids:
-            if import_game(email, api_token, game_id, imported_games_count):
+            if import_game(email, api_token, game_id, imported_games_count,
+                    ladder):
                 imported_games_count += 1
             elif halt_if_exists:
                 return imported_games_count
