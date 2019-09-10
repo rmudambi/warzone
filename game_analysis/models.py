@@ -47,7 +47,7 @@ class Card(models.Model):
 
     def get_order_type_id(self):
         # TODO ideally this should be explictly tied to the values of OrderType
-        return 'GameOrderPlayCard' + self.name[:-5].replace(' ', '')
+        return f'GameOrderPlayCard{self.name[:-5].replace(" ", "")}'
 
 
 class Player(models.Model):
@@ -55,10 +55,10 @@ class Player(models.Model):
     name = models.CharField(max_length=255)
 
     def __str__(self):
-        return str(self.id) + ':' + self.name
+        return f'{self.id}:{self.name}'
 
     def get_url(self):
-        return WARZONE_PATH + '/Profile?p=' + str(self.id)
+        return f'{WARZONE_PATH}/Profile?p={self.id}'
     
     # Get the id used in the games api
     def get_api_id(self):
@@ -73,7 +73,7 @@ class Map(models.Model):
         return self.name
 
     def get_url(self):
-        return WARZONE_PATH + '/SinglePlayer?PreviewMap=' + str(self.id)
+        return f'{WARZONE_PATH}/SinglePlayer?PreviewMap={self.id}'
 
 
 class Territory(models.Model):
@@ -92,10 +92,11 @@ class TerritoryConnection(models.Model):
         unique_together = (('from_territory', 'to_territory'),)
     uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     from_territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
-    to_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='+')
+    to_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, 
+            related_name='+')
 
     def __str__(self):
-        return str(self.from_territory) + ' to ' + str(self.to_territory)
+        return f'{self.from_territory} to {self.to_territory}'
 
 
 class Bonus(models.Model):
@@ -119,14 +120,15 @@ class BonusTerritory(models.Model):
     territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
 
     def __str__(self):
-        return str(self.bonus) + '.' + str(self.territory)
+        return f'{self.bonus}.{self.territory}'
     
 
 class Template(models.Model):
     id = models.IntegerField(primary_key=True, editable=False)
     map = models.ForeignKey(Map, on_delete=models.CASCADE)
     is_multi_day = models.BooleanField(default=True)
-    fog_level = models.ForeignKey(FogLevel, default='Foggy', on_delete=models.CASCADE)
+    fog_level = models.ForeignKey(FogLevel, default='Foggy', 
+            on_delete=models.CASCADE)
     is_multi_attack = models.BooleanField(default=False)
     allow_percentage_attacks = models.BooleanField(default=True)
     allow_attack_only = models.BooleanField(default=True)
@@ -162,7 +164,7 @@ class Template(models.Model):
     uses_mods = models.BooleanField(default=False)
 
     def __str__(self):
-        return str(self.map) + '-' + str(self.id)
+        return f'{self.map}-{self.id}'
 
 
 class TemplateOverriddenBonus(models.Model):
@@ -217,7 +219,7 @@ class GamePlayer(models.Model):
     end_state = models.ForeignKey(PlayerStateType, on_delete=models.CASCADE)
 
     def __str__(self):
-        return str(self.game) + ':' + str(self.player)
+        return f'{self.game}:{self.player}'
 
 
 class Turn(models.Model):
@@ -230,7 +232,7 @@ class Turn(models.Model):
     commit_date_time = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return str(self.game) + ': Turn ' + str(self.turn_number)
+        return f'{self.game}: Turn {self.turn_number}'
 
 
 class Order(models.Model):
@@ -241,25 +243,29 @@ class Order(models.Model):
     turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
     order_number = models.SmallIntegerField()
     order_type = models.ForeignKey(OrderType, on_delete=models.CASCADE)
-    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='player')
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, 
+            related_name='player')
     armies = models.SmallIntegerField(blank=True, null=True)
     # in an attack/transfer/airlift this is the "from"
-    primary_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='primary_territory', 
-            null=True, blank=True)
+    primary_territory = models.ForeignKey(Territory, on_delete=models.CASCADE,
+            related_name='primary_territory', null=True, blank=True)
     # in an attack/transfer/airlift this is the "to"
-    secondary_territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name='secondary_territory', 
+    secondary_territory = models.ForeignKey(Territory, 
+            on_delete=models.CASCADE, related_name='secondary_territory',
             null=True, blank=True)
-    target_player = models.ForeignKey(Player, on_delete=models.CASCADE, null=True, blank=True,
-            related_name='target_player')
-    target_bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE, null=True, blank=True)
+    target_player = models.ForeignKey(Player, on_delete=models.CASCADE,
+            related_name='target_player', null=True, blank=True)
+    target_bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE,
+            null=True, blank=True)
     card_id = models.CharField(max_length=64, blank=True, null=True)
 
     def __str__(self):
-        return str(self.turn) + ' - ' + str(self.order_number) + ":" + str(self.order_type)
+        return f'{self.turn} - {self.order_number}:{self.order_type}'
 
 
 class TerritoryClaim(models.Model):
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, primary_key=True)
+    order = models.OneToOneField(Order, on_delete=models.CASCADE,
+            primary_key=True)
     attack_transfer = models.CharField(max_length=15, default='AttackTransfer')
     is_attack_teammates = models.BooleanField(default=False)
     is_attack_by_percent = models.BooleanField(default=False)
@@ -272,4 +278,4 @@ class TerritoryClaim(models.Model):
     defense_luck = models.FloatField(blank=True, null=True)
 
     def __str__(self):
-        return 'Result:' + str(self.order)
+        return str(self.order)

@@ -59,11 +59,15 @@ def import_ladder_games(request):
                 start_time = datetime.now()
 
                 # Import games
-                count = import_games(email, api_token, ladder_id, max_results, offset, 50, halt_if_exists)
+                count = import_games(email, api_token, ladder_id, max_results,
+                        offset, 50, halt_if_exists)
 
                 end_time = datetime.now()
 
-                message = f'Imported {str(count)} games out of {max_results}. Execution duration was {str(end_time - start_time)}'
+                message = (
+                    f'Imported {str(count)} games out of {max_results}. '
+                    f'Execution duration was {str(end_time - start_time)}'
+                )
 
                 return home(request, message)
         except URLError as e:
@@ -72,7 +76,8 @@ def import_ladder_games(request):
     else:
         form = ImportLadderGamesForm()
     
-    return render(request, GAME_ANALYSIS + '/import_ladder_games.html', {'form': form})
+    return render(request, GAME_ANALYSIS + '/import_ladder_games.html',
+            {'form': form})
 
 
 def sandbox(request):
