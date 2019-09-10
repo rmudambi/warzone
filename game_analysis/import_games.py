@@ -282,125 +282,65 @@ def get_template(game_json):
         return template
 
 
-# Parse state of all territories at the end of a given turn
-def parse_territories_states(standing_node, turn, territories, territories_states):
-    for territory_node in standing_node:
-        # Territory owner is Neutral, AvailableForDistribution (only in DistributionStanding), or a Player
-        territory_owner = territory_node['ownedBy']
-        territory_armies = territory_node['armies']
-
-        # Only add Territory State if the territory is not a neutral with 2 armies on it
-        # TODO handle case where base neutrals is not 2 (not needed for 1v1 ladder)
-        if 'Neutral' != territory_owner or 2 != territory_armies:
-            territory_id = int(territory_node['terrID'])
-            territory_state = TerritoryState(turn=turn, territory=territories[territory_id],
-                    armies=territory_armies)
-            try:
-                territory_state.player = cache.neutral_players[territory_owner]
-            except KeyError:
-                territory_state.player = cache.get_player(int(territory_owner))
-            territories_states.append(territory_state)
-    return territories_states
-
-
-# Parse initial state of all territories for the game
-def parse_initial_territory_states(game, distribution_node, territories, territories_states):
-    turn = Turn(game=game, turn_number=-2)
-    turn.save()
-
-    # Import the initial state of the territories
-    return parse_territories_states(distribution_node, turn, territories, territories_states)
-
-
 # Parse the picks turn
-def parse_picks_turn(game, picks_node, state_node, territories, cards_settings, orders, territories_states, 
-        cards_state):
+def parse_picks_turn(game, picks_node, state_node, territories, cards_settings, orders, territory_claims):
     turn = Turn(game=game, turn_number=-1)
     turn.save()
 
+    raw_pick_results = {}
+
+    for territory_node in state_node:
+        territory_owner = territory_node['ownedBy']
+        territory = int(territory_node['terrID'])
+
+        # If owner is not neutral
+        if territory_owner not in cache.neutral_players.keys():
+            territory_owner = int(territory_owner)
+            if territory_owner not in raw_pick_results.keys():
+                raw_pick_results[territory_owner] = set([territory])
+            else:
+                raw_pick_results[territory_owner].add(territory)
+
     pick_type = cache.get_order_type('GameOrderPick')
-    player_api_ids = []
+    
+    order_number = 0
 
     for player_number, player_node_key in enumerate(picks_node):
         # Get Player from node by stripping the prefix ('player_') and looking up the id
         player_api_id = int(player_node_key[7:])
         player = cache.get_player(player_api_id)
-        player_api_ids.append(player_api_id)
+    
+        for pick_number, territory_id in enumerate(picks_node[player_node_key]):
+            territory = territories[territory_id]
+            order = Order(turn=turn, order_number=order_number, order_type=pick_type, player=player, 
+                    primary_territory=territory)
+                    
+            territory_claim = TerritoryClaim(order=order, attack_transfer='Pick', 
+                    is_successful=(territory.api_id in raw_pick_results[player_api_id]))
+            
+            # If the player controls the territory after picks
+            if territory_claim.is_successful:
+                # Remove territory from list of territories
+                raw_pick_results[player_api_id].remove(territory.api_id)
 
-        for pick_number, pick in enumerate(picks_node[player_node_key]):
-            order = Order(turn=turn, order_number=len(orders), order_type=pick_type, player=player, 
-                    primary_territory=territories[pick])
             orders.append(order)
+            territory_claims.append(territory_claim)
+            order_number += 1
 
-    # Import the state of the territories after picks
-    parse_territories_states(state_node, turn, territories, territories_states)
-    
-    initial_cards_state = {}
+    # All leftover territories must have been assigned randomly due to the player not making enough picks
+    for player_api_id in raw_pick_results:
+        player = cache.get_player(player_api_id)
+        for territory_id in raw_pick_results[player_api_id]:
+            territory = territories[territory_id]
+            order = Order(turn=turn, order_number=order_number, order_type=cache.get_order_type('GameOrderFizzerPick'),
+                    player=player, primary_territory=territory)
+                    
+            territory_claim = TerritoryClaim(order=order, attack_transfer='Pick', is_successful=True)
 
-    # Import initial state of the cards
-    for card_id in cards_settings:
-        card_settings = cards_settings[card_id]
-        # Get iniial completed cards
-        completed_cards = card_settings.initial_pieces // card_settings.number_of_pieces
-        # Get intial pieces needed for next card
-        pieces_until_next_card = -card_settings.initial_pieces % card_settings.number_of_pieces
-        # If result is 0 make it the number of pieces in the card
-        pieces_until_next_card += card_settings.number_of_pieces if not pieces_until_next_card else 0
-        initial_cards_state[card_settings.card.get_order_type_id()] = {}
-        for player_api_id in player_api_ids:
-            # Add card state to dictionary
-            current_card_state = CardState(turn=turn, card=card_settings.card, player=cache.get_player(player_api_id),
-                    completed_cards = completed_cards, pieces_until_next_card=pieces_until_next_card)
-            initial_cards_state[card_settings.card.get_order_type_id()][player_api_id] = current_card_state
-    
-    cards_state.append(initial_cards_state)
+            orders.append(order)
+            territory_claims.append(territory_claim)
+            order_number += 1
 
-
-# Copy the current state, but update the uuid and turn
-def copy_previous_card_state(turn, previous_card_state):
-    next_card_state = deepcopy(previous_card_state)
-    next_card_state.uuid = uuid4()
-    next_card_state.turn = turn
-    return next_card_state
-
-
-# Update card states in receive card order
-# TODO handle the case where card pieces received per turn isn't 1 (not needed for 1v1 ladder analysis)
-def update_cards_state_receive_card(turn, player_api_id, cards_settings, current_cards_state):
-    # Iterate through each card
-    for card_order_type_id in current_cards_state:
-        card_state = current_cards_state[card_order_type_id][player_api_id]
-
-        if card_state.pieces_until_next_card == 1:
-            # If player received a card, increment completed cards and reset pieces until next card
-            card_state.completed_cards += 1
-            card_state.pieces_until_next_card = cards_settings[card_state.card.id].number_of_pieces
-        else:
-            # Otherwise decrement pieces until next card
-            card_state.pieces_until_next_card -= 1
-
-
-# Parse the Card State for a Turn
-def parse_cards_state(turn, order_nodes, cards_settings, cards_states):
-    previous_cards_state = cards_states[-1]
-    current_cards_state = {}
-    for card_order_type_id in previous_cards_state:
-        current_cards_state[card_order_type_id] = {}
-        for player_api_id in previous_cards_state[card_order_type_id]:
-            # Copy the previous state, but update the uuid and turn
-            current_cards_state[card_order_type_id][player_api_id] = copy_previous_card_state(turn, 
-                        previous_cards_state[card_order_type_id][player_api_id])
-
-    for order_node in order_nodes:
-        if order_node['type'] == 'GameOrderReceiveCard':
-            # Update card state from receive card orders
-            update_cards_state_receive_card(turn, order_node['playerID'], cards_settings, current_cards_state)
-        elif order_node['type'].startswith('GameOrderPlayCard'):
-            # Copy the current state, but update the uuid and turn and decrement current cards by one
-            current_cards_state[order_node['type']][order_node['playerID']].completed_cards -= 1
-
-    cards_states.append(current_cards_state)
-        
 
 # Parse basic Order
 def parse_basic_order(turn, order_number, order_node, orders):
@@ -512,19 +452,6 @@ def parse_orders(turn, order_nodes, territories, orders, territory_claims):
             pass
 
 
-# Flatten and import Cards States to DB
-def import_cards_states(cards_states):
-    # Flatten Card States
-    flattened_cards_states = []
-    for turn_cards_states in cards_states:
-        for card_id in turn_cards_states:
-            for player_api_id in turn_cards_states[card_id]:
-                flattened_cards_states.append(turn_cards_states[card_id][player_api_id])
-    
-    # Save Card States to DB
-    CardState.objects.bulk_create(flattened_cards_states)
-
-
 # Import Turns into the DB
 def import_turns(game, game_json):
     logging.debug(f'Importing Turns for Game {game.id}')
@@ -556,33 +483,25 @@ def import_turns(game, game_json):
     turns = []
     orders = []
     territory_claims = []
-    territories_states = []
-    cards_states = []           # List of card states at each turn: [{Card ID -> {Player ID -> Card State}}]
 
-    # Import picks and initial game state
-    parse_initial_territory_states(game, game_json['distributionStanding'], territories, territories_states)
-    parse_picks_turn(game, picks_node, game_json['standing0'], territories, cards_settings, orders, territories_states,
-            cards_states)
+    # Import picks
+    parse_picks_turn(game, picks_node, game_json['standing0'], territories, cards_settings, orders, territory_claims)
 
     for turn_number, turn_node in enumerate(turn_nodes):
         # create Turn object and set fields
         commit_date_time = datetime.strptime(turn_node['date'], '%m/%d/%Y %H:%M:%S').replace(tzinfo=UTC)
         turn = Turn(game=game, turn_number=turn_number, commit_date_time=commit_date_time)
+        turn.save()
     
         parse_orders(turn, turn_node['orders'], territories, orders, territory_claims)
-        parse_territories_states(standing_nodes[turn_number], turn, territories, territories_states)
-        parse_cards_state(turn, turn_node['orders'], cards_settings, cards_states)
 
         turns.append(turn)
 
-    # Save Turns, Orders, Territory States, and Card States to DB
-    Turn.objects.bulk_create(turns)
+    # Save Orders, Territory States, and Card States to DB
     Order.objects.bulk_create(orders)
     TerritoryClaim.objects.bulk_create(territory_claims)
-    TerritoryState.objects.bulk_create(territories_states)
-    import_cards_states(cards_states)
 
-    logging.debug(f'Imported {game.number_of_turns} Turns, {len(orders)} Orders, and {len(territories_states)} Territory States.')
+    logging.debug(f'Imported {game.number_of_turns} Turns, {len(orders)} Orders.')
 
     
 # Imports a Game into with the given ID into the DB along with associated data if they do not yet exist

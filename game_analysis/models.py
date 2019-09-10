@@ -263,42 +263,13 @@ class TerritoryClaim(models.Model):
     attack_transfer = models.CharField(max_length=15, default='AttackTransfer')
     is_attack_teammates = models.BooleanField(default=False)
     is_attack_by_percent = models.BooleanField(default=False)
-    is_attack = models.BooleanField()
+    is_attack = models.BooleanField(default=False)
     is_successful = models.BooleanField()
-    attack_size = models.SmallIntegerField()
-    attacking_armies_killed = models.SmallIntegerField()
-    defending_armies_killed = models.SmallIntegerField()
-    offense_luck = models.FloatField()
-    defense_luck = models.FloatField()
+    attack_size = models.SmallIntegerField(blank=True, null=True)
+    attacking_armies_killed = models.SmallIntegerField(blank=True, null=True)
+    defending_armies_killed = models.SmallIntegerField(blank=True, null=True)
+    offense_luck = models.FloatField(blank=True, null=True)
+    defense_luck = models.FloatField(blank=True, null=True)
 
     def __str__(self):
         return 'Result:' + str(self.order)
-
-
-class TerritoryState(models.Model):
-    class Meta:
-        unique_together = (('turn', 'territory'),)
-    
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
-    territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
-    player = models.ForeignKey(Player, on_delete=models.CASCADE)
-    armies = models.SmallIntegerField()
-
-    def __str__(self):
-        return str(self.turn) + ' - ' + str(self.territory)
-
-
-class CardState(models.Model):
-    class Meta:
-        unique_together = (('turn', 'card', 'player'),)
-    
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
-    card = models.ForeignKey(Card, on_delete=models.CASCADE)
-    player = models.ForeignKey(Player, on_delete=models.CASCADE)
-    completed_cards = models.SmallIntegerField(default=0)
-    pieces_until_next_card = models.SmallIntegerField()
-
-    def __str__(self):
-        return str(self.turn) + str(self.player.id) + ' - ' + str(self.card)
