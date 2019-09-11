@@ -246,18 +246,17 @@ class Order(models.Model):
     turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
     order_number = models.SmallIntegerField()
     order_type = models.ForeignKey(OrderType, on_delete=models.CASCADE)
-    player = models.ForeignKey(Player, on_delete=models.CASCADE, 
-            related_name='player')
+    player = models.ForeignKey(GamePlayer, on_delete=models.CASCADE, 
+            related_name='order')
     armies = models.SmallIntegerField(blank=True, null=True)
     # in an attack/transfer/airlift this is the "from"
     primary_territory = models.ForeignKey(Territory, on_delete=models.CASCADE,
-            related_name='primary_territory', null=True, blank=True)
+            related_name='+', null=True, blank=True)
     # in an attack/transfer/airlift this is the "to"
     secondary_territory = models.ForeignKey(Territory, 
-            on_delete=models.CASCADE, related_name='secondary_territory',
-            null=True, blank=True)
-    target_player = models.ForeignKey(Player, on_delete=models.CASCADE,
-            related_name='target_player', null=True, blank=True)
+            on_delete=models.CASCADE, related_name='+', null=True, blank=True)
+    target_player = models.ForeignKey(GamePlayer, on_delete=models.CASCADE,
+            related_name='+', null=True, blank=True)
     target_bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE,
             null=True, blank=True)
     card_id = models.CharField(max_length=64, blank=True, null=True)

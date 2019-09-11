@@ -15,36 +15,36 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 # Fetches Player from DB if it exists.
 # Otherwise creates Player from Node and saves it to DB
 # Returns Player
-def get_player(player_node):
+def import_player(player_node):
     try:
-        return cache.get_player(int(player_node['id']), True)
+        return cache.get_player(int(player_node['id']))
     except Player.DoesNotExist:
         player = Player(id=player_node['id'], name=player_node['name'])
         player.save()
 
-        cache.add_to_players(player, player.get_api_id())
+        cache.add_to_players(player)
         return player
 
 
 # Add Player data to Game
 def add_players_to_game(game, game_json):
-    # Reset players by api id dictionary
-    cache.clear_players()
+    # Reset game players cache
+    cache.clear_game_players()
+    players = []
     game_players = []
 
     logging.debug(f'Adding Players to Game {game.id}')
 
     player_nodes = game_json['players']
     for player_node in player_nodes:
-        player = get_player(player_node)
-        
+        # Get the player
+        player = import_player(player_node)
+
+        # Create GamePlayer and save to cache and DB
         end_state = cache.get_player_state_type(player_node['state'])
-        game_players.append(
-            GamePlayer(game=game,
-                player=player, 
-                end_state=end_state))
-    
-    GamePlayer.objects.bulk_create(game_players)
+        game_player = GamePlayer(game=game, player=player, end_state=end_state)
+        game_player.save()
+        cache.add_to_game_players(game_player, player.get_api_id())
 
 
 # Import all territories to the DB for a given Map
@@ -336,7 +336,7 @@ def parse_picks_turn(game, picks_node, state_node, territories, cards_settings,
         # Get Player from node by stripping the prefix ('player_') and looking
         #   up the id
         player_api_id = int(player_node_key[7:])
-        player = cache.get_player(player_api_id)
+        game_player = cache.get_game_player(game.id, player_api_id)
     
         for pick, territory_id in enumerate(picks_node[player_node_key]):
             territory = territories[territory_id]
@@ -344,7 +344,7 @@ def parse_picks_turn(game, picks_node, state_node, territories, cards_settings,
                 turn=turn,
                 order_number=order_number,
                 order_type=pick_type,
-                player=player,
+                player=game_player,
                 primary_territory=territory)
                     
             territory_claim = TerritoryClaim(
@@ -365,14 +365,14 @@ def parse_picks_turn(game, picks_node, state_node, territories, cards_settings,
     # All leftover territories must have been assigned randomly due to the
     #   player not making enough picks
     for player_api_id in raw_pick_results:
-        player = cache.get_player(player_api_id)
+        game_player = cache.get_game_player(game.id, player_api_id)
         for territory_id in raw_pick_results[player_api_id]:
             territory = territories[territory_id]
             order = Order(
                 turn=turn,
                 order_number=order_number,
                 order_type=cache.get_order_type('GameOrderFizzerPick'),
-                player=player,
+                player=game_player,
                 primary_territory=territory)
                     
             territory_claim = TerritoryClaim(
@@ -389,7 +389,8 @@ def parse_picks_turn(game, picks_node, state_node, territories, cards_settings,
 def parse_basic_order(turn, order_number, order_node, orders):
     order = Order(turn=turn, order_number=order_number)
     order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_player(int(order_node['playerID']))
+    order.player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID']))
     orders.append(order)
 
 
@@ -397,17 +398,20 @@ def parse_basic_order(turn, order_number, order_node, orders):
 def parse_deploy_order(turn, order_number, order_node, territories, orders):
     order = Order(turn=turn, order_number=order_number)
     order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_player(int(order_node['playerID']))
+    order.player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID']))
     order.primary_territory = territories[int(order_node['deployOn'])]
     order.armies = order_node['armies']
     orders.append(order)
 
 
 # Parse attack/transfer Order
-def parse_attack_transfer_order(turn, order_number, order_node, territories, orders, territory_claims):
+def parse_attack_transfer_order(turn, order_number, order_node, territories,
+        orders, territory_claims):
     order = Order(turn=turn, order_number=order_number)
     order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_player(int(order_node['playerID']))
+    order.player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID']))
     order.primary_territory = territories[int(order_node['from'])]
     order.secondary_territory = territories[int(order_node['to'])]
     order.armies = order_node['numArmies']
@@ -434,7 +438,8 @@ def parse_attack_transfer_order(turn, order_number, order_node, territories, ord
 def parse_basic_play_card_order(turn, order_number, order_node, orders):
     order = Order(turn=turn, order_number=order_number)
     order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_player(int(order_node['playerID']))
+    order.player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID']))
     order.card_id = order_node['cardInstanceID']
     orders.append(order)
 
@@ -443,7 +448,8 @@ def parse_basic_play_card_order(turn, order_number, order_node, orders):
 def parse_blockade_order(turn, order_number, order_node, territories, orders):
     order = Order(turn=turn, order_number=order_number)
     order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_player(int(order_node['playerID']))
+    order.player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID']))
     order.primary_territory = territories[int(order_node['targetTerritoryID'])]
     order.card_id = order_node['cardInstanceID']
     orders.append(order)

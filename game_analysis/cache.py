@@ -1,7 +1,7 @@
 import logging
 
-from .models import Card, Map, OrderType, Player, PlayerStateType, Template
-from .models import TemplateCardSetting, Territory
+from .models import Card, GamePlayer, Map, OrderType, Player, PlayerStateType
+from .models import Template, TemplateCardSetting, Territory
 
 # Dictionary from card id -> card
 cards = {}
@@ -23,8 +23,11 @@ templates = {}
 #   {territory api id -> territory}}
 maps = {}
 
-# Dictionary from player id -> {'player': player}
+# Dictionary from player id -> player
 players = {}
+
+# Dictionary from player id -> game player
+game_players = {}
 
 
 # Get Card
@@ -133,26 +136,45 @@ def get_template(template_id):
     return templates[template_id]['template']
 
 
-# Clears the players cache
-def clear_players():
-    players = {}
-
-
-# Add the player to the players cache. Uses Player ID as default, but will key
-# on input ID if provided
-def add_to_players(player, player_id=None):
-    players[player_id if bool(player_id) else player.id] = player
+# Add the player to the players cache
+def add_to_players(player):
+    players[player.id] = player
 
 
 # Fetches Player from DB if it exists.
 # Throws Player.DoesNotExist if Player doesn't exist in the DB
-# Add the player to the players cache. Uses Player ID as default, but keys on
-# API ID if are_id_key_different == True
+# Add the player to the players cache. Uses Player ID as key
 # Returns Player
-def get_player(player_id, are_id_key_different=False):
+def get_player(player_id):
     if player_id not in players:
         player = Player.objects.get(pk=player_id)
-        player_id = player.get_api_id() if are_id_key_different else player.id
         add_to_players(player, player_id)
         
     return players[player_id]
+
+
+# Clears the players cache
+def clear_game_players():
+    game_players = {}
+
+
+# Add the player to the players cache. Uses Player ID as default, but will key
+# on input ID if provided
+def add_to_game_players(game_player, key):
+    game_players[key] = game_player
+
+
+# Fetches GamePlayer from DB if it exists.
+# Throws GamePlayer.DoesNotExist if GamePlayer doesn't exist in the DB
+# Add the player to the players cache. Uses Player ID as default, but keys on
+# API ID if id_key_different == True
+# Returns Player
+def get_game_player(game_id, player_id, id_key_different=False):
+    if player_id not in game_players:
+        game_player = GamePlayer.objects.get(
+            game_id=game_id,
+            player_id=player_id)
+        id = game_player.get_api_id() if id_key_different else game_player.id
+        game_players[id] = game_player
+        
+    return game_players[player_id]
