@@ -563,13 +563,11 @@ def import_turns(game, game_json):
     territories = cache.get_territories(game.template.map_id)
     cards_settings = cache.get_cards_settings(game.template_id)
     
-    # Return if the game doesn't have any picks
+    # Get picks node for manual distribution games - otherwise use empty list
     try:
-        # TODO fix this to handle auto-distribution games (not needed for most
-        #   templates)
         picks_node = game_json['picks']
     except KeyError:
-        return
+        picks_node = []
     
     # Import picks
     parse_picks_turn(game, picks_node, game_json['standing0'], territories,
