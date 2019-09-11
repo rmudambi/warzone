@@ -13,4 +13,3 @@ class ImportLadderGamesForm(forms.Form):
         initial=50,
         min_value=1)
     offset = forms.IntegerField(min_value=0, initial=0)
-    halt_if_exists = forms.BooleanField(initial=False, required=False)

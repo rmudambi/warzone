@@ -94,6 +94,7 @@ def generate_order_types(apps, schema_editor):
 
     order_types = [
         OrderType(id='GameOrderPick', name='Pick'),
+        OrderType(id='GameOrderAutoPick', name='Auto Pick'),
         OrderType(id='GameOrderDeploy', name='Deploy'),
         OrderType(id='GameOrderAttackTransfer', name='Attack or Transfer'),
         OrderType(id='GameOrderReceiveCard', name='Receive Card Pieces'),

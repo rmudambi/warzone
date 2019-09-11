@@ -48,7 +48,6 @@ def import_ladder_games(request):
                 ladder_id = form.cleaned_data['ladder_id']
                 max_results = form.cleaned_data['max_results']
                 offset = form.cleaned_data['offset']
-                halt_if_exists = form.cleaned_data['halt_if_exists']
 
                 # Get api token
                 try:
@@ -60,7 +59,7 @@ def import_ladder_games(request):
 
                 # Import games
                 count = import_games(email, api_token, ladder_id, max_results,
-                        offset, 50, halt_if_exists)
+                        offset, 50)
 
                 end_time = datetime.now()
 

@@ -12,6 +12,26 @@ from .models import *
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
+
+# Lists of objects to save in bulk to DB
+games_to_save = []
+players_to_save = []
+game_players_to_save = []
+turns_to_save = []
+orders_to_save = []
+territory_claims_to_save = []
+
+
+# Clear lists of objects to save
+def clear_save_queue():
+    games_to_save.clear()
+    players_to_save.clear()
+    game_players_to_save.clear()
+    turns_to_save.clear()
+    orders_to_save.clear()
+    territory_claims_to_save.clear()
+
+
 # Fetches Player from DB if it exists.
 # Otherwise creates Player from Node and saves it to DB
 # Returns Player
@@ -19,10 +39,9 @@ def import_player(player_node):
     try:
         return cache.get_player(int(player_node['id']))
     except Player.DoesNotExist:
-        player = Player(id=player_node['id'], name=player_node['name'])
-        player.save()
-
+        player = Player(id=int(player_node['id']), name=player_node['name'])
         cache.add_to_players(player)
+        players_to_save.append(player)
         return player
 
 
@@ -43,8 +62,8 @@ def add_players_to_game(game, game_json):
         # Create GamePlayer and save to cache and DB
         end_state = cache.get_player_state_type(player_node['state'])
         game_player = GamePlayer(game=game, player=player, end_state=end_state)
-        game_player.save()
         cache.add_to_game_players(game_player, player.get_api_id())
+        game_players_to_save.append(game_player)
 
 
 # Import all territories to the DB for a given Map
@@ -256,66 +275,70 @@ def get_template(game_json):
     except Template.DoesNotExist:
         # Otherwise create template
         logging.info(f'Creating Template {template_id}')
-        template = Template(id=template_id, map=get_map(game_json['map']))
-
-        # Get Settings
-        settings_node = game_json['settings']
-        template.is_multi_day = settings_node['Pace'] == 'MultiDay'
-        if settings_node['Fog'] != 'Foggy':         # default is 'Foggy'
-            template.fog_level = FogLevel.objects.get(pk=settings_node['Fog'])
-        template.is_multi_attack = settings_node['MultiAttack']
-        template.allow_percentage_attacks = settings_node['AllowPercentageAttacks']
-        template.allow_transfer_only = settings_node['AllowTransferOnly']
-        template.allow_attack_only = settings_node['AllowAttackOnly']
-        template.is_cycle_move_order = settings_node['MoveOrder'] == 'Cycle'
-        template.is_booted_to_ai = settings_node['BootedPlayersTurnIntoAIs']
-        template.is_surrender_to_ai = settings_node['SurrenderedPlayersTurnIntoAIs']
-        template.times_return_from_ai = settings_node['TimesCanComeBackFromAI']
-        template.is_manual_distribution = settings_node['AutomaticTerritoryDistribution'] == 'Manual'
-        template.distribution_mode = settings_node['DistributionMode']
-        template.territory_limit = settings_node['TerritoryLimit']
-        template.initial_armies = settings_node['InitialPlayerArmiesPerTerritory']
-        template.out_distribution_neutrals = settings_node['InitialNonDistributionArmies']
-        template.in_distribution_neutrals = settings_node['InitialNeutralsInDistribution']
-        template.wasteland_count = settings_node['Wastelands']['NumberOfWastelands']
-        template.wasteland_size = settings_node['Wastelands']['WastelandSize']
-        # TODO add support for Commerce templates - not needed for most strategic templates
-        template.is_commerce = False
-        template.has_commanders = settings_node['Commanders']
-        template.is_one_army_stand_guard = settings_node['OneArmyStandsGuard']
-        template.base_income = settings_node['MinimumArmyBonus']
-        template.luck_modifier = settings_node['LuckModifier']
-        template.is_straight_round = settings_node['RoundingMode'] == 'StraightRound'
-        template.bonus_army_per = settings_node['BonusArmyPer'] if settings_node['BonusArmyPer'] != 0  else None
-        template.army_cap = settings_node['ArmyCap'] if settings_node['ArmyCap'] != 'null' else None
-        template.offensive_kill_rate = settings_node['OffensiveKillRate']
-        template.defensive_kill_rate = settings_node['DefensiveKillRate']
-        template.is_local_deployment = settings_node['LocalDeployments']
-        template.is_no_split = settings_node['NoSplit']
-        template.max_cards = settings_node['MaxCardsHold']
-        template.card_pieces_per_turn = settings_node['NumberOfCardsToReceiveEachTurn']
-        template.card_playing_visible = not settings_node['CardPlayingsFogged']
-        template.card_visible = not settings_node['CardsHoldingAndReceivingFogged']
-        template.uses_mods = bool(settings_node['Mods'])
         
-        # And add it to the DB
+        settings = game_json['settings']
+        template = Template(
+            id = template_id,
+            map = get_map(game_json['map']),
+            is_multi_day = settings['Pace'] == 'MultiDay',
+            fog_level = FogLevel.objects.get(pk=settings['Fog']),
+            is_multi_attack = settings['MultiAttack'],
+            allow_transfer_only = settings['AllowTransferOnly'],
+            allow_attack_only = settings['AllowAttackOnly'],
+            is_cycle_move_order = settings['MoveOrder'] == 'Cycle',
+            is_booted_to_ai = settings['BootedPlayersTurnIntoAIs'],
+            is_surrender_to_ai = settings['SurrenderedPlayersTurnIntoAIs'],
+            times_return_from_ai = settings['TimesCanComeBackFromAI'],
+            is_manual_distribution = (
+                settings['AutomaticTerritoryDistribution'] == 'Manual'),
+            distribution_mode = settings['DistributionMode'],
+            territory_limit = settings['TerritoryLimit'],
+            initial_armies = settings['InitialPlayerArmiesPerTerritory'],
+            out_distribution_neutrals = (
+                settings['InitialNonDistributionArmies']),
+            in_distribution_neutrals = (
+                settings['InitialNeutralsInDistribution']),
+            wasteland_count = settings['Wastelands']['NumberOfWastelands'],
+            wasteland_size = settings['Wastelands']['WastelandSize'],
+            # TODO add support for Commerce templates
+            # not needed for most strategic templates
+            is_commerce = False,
+            has_commanders = settings['Commanders'],
+            is_one_army_stand_guard = settings['OneArmyStandsGuard'],
+            base_income = settings['MinimumArmyBonus'],
+            luck_modifier = settings['LuckModifier'],
+            is_straight_round = settings['RoundingMode'] == 'StraightRound',
+            bonus_army_per = (settings['BonusArmyPer']
+                if settings['BonusArmyPer'] != 0  else None),
+            army_cap = (settings['ArmyCap']
+                if settings['ArmyCap'] != 'null' else None),
+            offensive_kill_rate = settings['OffensiveKillRate'],
+            defensive_kill_rate = settings['DefensiveKillRate'],
+            is_local_deployment = settings['LocalDeployments'],
+            is_no_split = settings['NoSplit'],
+            max_cards = settings['MaxCardsHold'],
+            card_pieces_per_turn = settings['NumberOfCardsToReceiveEachTurn'],
+            card_playing_visible = not settings['CardPlayingsFogged'],
+            card_visible = not settings['CardsHoldingAndReceivingFogged'],
+            uses_mods = bool(settings['Mods']))
+        
         template.save()
 
-        import_overridden_bonuses(template, settings_node['OverriddenBonuses'])
-        cards_settings = get_cards_settings(template, settings_node)
+        import_overridden_bonuses(template, settings['OverriddenBonuses'])
+        cards_settings = get_cards_settings(template, settings)
 
         cache.add_to_templates(template, cards_settings)
         return template
 
 
 # Parse the picks turn
-def parse_picks_turn(game, picks_node, state_node, territories, cards_settings,
-        orders, territory_claims):
+def parse_picks_turn(game, picks_node, state_node, territories,
+        cards_settings):
     turn = Turn(game=game, turn_number=-1)
-    turn.save()
-
+    
+    # Get pick results
+    # Needed since the api doesn't reveal who received which picks otherwise
     raw_pick_results = {}
-
     for territory_node in state_node:
         territory_owner = territory_node['ownedBy']
         territory = int(territory_node['terrID'])
@@ -328,8 +351,6 @@ def parse_picks_turn(game, picks_node, state_node, territories, cards_settings,
             else:
                 raw_pick_results[territory_owner].add(territory)
 
-    pick_type = cache.get_order_type('GameOrderPick')
-    
     order_number = 0
 
     for player_number, player_node_key in enumerate(picks_node):
@@ -340,26 +361,15 @@ def parse_picks_turn(game, picks_node, state_node, territories, cards_settings,
     
         for pick, territory_id in enumerate(picks_node[player_node_key]):
             territory = territories[territory_id]
-            order = Order(
-                turn=turn,
-                order_number=order_number,
-                order_type=pick_type,
-                player=game_player,
-                primary_territory=territory)
-                    
-            territory_claim = TerritoryClaim(
-                order=order,
-                attack_transfer='Pick',
-                is_successful=(territory.api_id 
-                        in raw_pick_results[player_api_id]))
+            is_successful = territory.api_id in raw_pick_results[player_api_id]
+            parse_pick_order(territory, turn, order_number, False, game_player,
+                is_successful)
             
             # If the player controls the territory after picks
-            if territory_claim.is_successful:
+            if is_successful:
                 # Remove territory from list of territories
                 raw_pick_results[player_api_id].remove(territory.api_id)
 
-            orders.append(order)
-            territory_claims.append(territory_claim)
             order_number += 1
 
     # All leftover territories must have been assigned randomly due to the
@@ -368,91 +378,115 @@ def parse_picks_turn(game, picks_node, state_node, territories, cards_settings,
         game_player = cache.get_game_player(game.id, player_api_id)
         for territory_id in raw_pick_results[player_api_id]:
             territory = territories[territory_id]
-            order = Order(
-                turn=turn,
-                order_number=order_number,
-                order_type=cache.get_order_type('GameOrderFizzerPick'),
-                player=game_player,
-                primary_territory=territory)
-                    
-            territory_claim = TerritoryClaim(
-                order=order,
-                attack_transfer='Pick',
-                is_successful=True)
-
-            orders.append(order)
-            territory_claims.append(territory_claim)
+            parse_pick_order(territory, turn, order_number, True, game_player,
+                True)
+            
             order_number += 1
+
+    turns_to_save.append(turn)
+
+
+# Parse pick Order
+def parse_pick_order(territory, turn, order_number, is_auto_pick, game_player,
+        is_successful):
+    order_type_id = 'GameOrderAutoPick' if is_auto_pick else 'GameOrderPick'
+    attack_transfer_id = 'AutoPick' if is_auto_pick else 'Pick'
+
+    order = Order(
+        turn=turn,
+        order_number=order_number,
+        order_type=cache.get_order_type(order_type_id),
+        player=game_player,
+        primary_territory=territory)
+
+    territory_claim = TerritoryClaim(
+        order=order,
+        attack_transfer=attack_transfer_id,
+        is_successful=is_successful)
+
+    orders_to_save.append(order)
+    territory_claims_to_save.append(territory_claim)
 
 
 # Parse basic Order
-def parse_basic_order(turn, order_number, order_node, orders):
-    order = Order(turn=turn, order_number=order_number)
-    order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_game_player(turn.game.id, 
-            int(order_node['playerID']))
-    orders.append(order)
+def parse_basic_order(turn, order_number, order_node):
+    order = Order(
+        turn=turn,
+        order_number=order_number,
+        order_type = cache.get_order_type(order_node['type']),
+        player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID'])))
+    orders_to_save.append(order)
 
 
 # Parse deploy Order
-def parse_deploy_order(turn, order_number, order_node, territories, orders):
-    order = Order(turn=turn, order_number=order_number)
-    order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_game_player(turn.game.id, 
-            int(order_node['playerID']))
-    order.primary_territory = territories[int(order_node['deployOn'])]
-    order.armies = order_node['armies']
-    orders.append(order)
+def parse_deploy_order(turn, order_number, order_node, territories):
+    order = Order(
+        turn=turn,
+        order_number=order_number,
+        order_type = cache.get_order_type(order_node['type']),
+        player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID'])),
+        primary_territory = territories[int(order_node['deployOn'])],
+        armies = order_node['armies'])
+    orders_to_save.append(order)
 
 
 # Parse attack/transfer Order
-def parse_attack_transfer_order(turn, order_number, order_node, territories,
-        orders, territory_claims):
-    order = Order(turn=turn, order_number=order_number)
-    order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_game_player(turn.game.id, 
-            int(order_node['playerID']))
-    order.primary_territory = territories[int(order_node['from'])]
-    order.secondary_territory = territories[int(order_node['to'])]
-    order.armies = order_node['numArmies']
-    orders.append(order)
+def parse_attack_transfer_order(turn, order_number, order_node, territories):
+    order = Order(
+        turn=turn,
+        order_number=order_number,
+        order_type = cache.get_order_type(order_node['type']),
+        player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID'])),
+        primary_territory = territories[int(order_node['from'])],
+        secondary_territory = territories[int(order_node['to'])],
+        armies = order_node['numArmies'])
+    orders_to_save.append(order)
     
     # Parse AttackResult node
-    territory_claim = TerritoryClaim(order=order)
-    order.attack_transfer = order_node['attackTransfer']
-    order.is_attack_teammates = order_node['attackTeammates']
-    order.is_attack_by_percent = order_node['byPercent']
-    
     result_node = order_node['result']
-    territory_claim.is_attack = result_node['isAttack']
-    territory_claim.is_successful = result_node['isSuccessful']
-    territory_claim.attack_size = result_node['armies']
-    territory_claim.attacking_armies_killed = result_node['attackingArmiesKilled']
-    territory_claim.defending_armies_killed = result_node['defendingArmiesKilled']
-    territory_claim.offense_luck = 0.0 if not result_node['offenseLuck'] else float(result_node['offenseLuck'])
-    territory_claim.defense_luck = 0.0 if not result_node['defenseLuck'] else float(result_node['defenseLuck'])
-    territory_claims.append(territory_claim)
+    territory_claim = TerritoryClaim(
+        order=order,
+        attack_transfer = order_node['attackTransfer'],
+        is_attack_teammates = order_node['attackTeammates'],
+        is_attack_by_percent = order_node['byPercent'],
+        is_attack = result_node['isAttack'],
+        is_successful = result_node['isSuccessful'],
+        attack_size = result_node['armies'],
+        attacking_armies_killed = result_node['attackingArmiesKilled'],
+        defending_armies_killed = result_node['defendingArmiesKilled'],
+        offense_luck = 0.0 if not result_node['offenseLuck'] 
+            else float(result_node['offenseLuck']),
+        defense_luck = 0.0 if not result_node['defenseLuck'] 
+            else float(result_node['defenseLuck']))
+    territory_claims_to_save.append(territory_claim)
         
 
 # Parse basic play card Order
-def parse_basic_play_card_order(turn, order_number, order_node, orders):
-    order = Order(turn=turn, order_number=order_number)
-    order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_game_player(turn.game.id, 
-            int(order_node['playerID']))
-    order.card_id = order_node['cardInstanceID']
-    orders.append(order)
+def parse_basic_play_card_order(turn, order_number, order_node):
+    order = Order(
+        turn=turn,
+        order_number=order_number,
+        order_type = cache.get_order_type(order_node['type']),
+        player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID'])),
+        card_id = order_node['cardInstanceID'])
+    orders_to_save.append(order)
 
 
 # Parse blockade Order
-def parse_blockade_order(turn, order_number, order_node, territories, orders):
-    order = Order(turn=turn, order_number=order_number)
-    order.order_type = cache.get_order_type(order_node['type'])
-    order.player = cache.get_game_player(turn.game.id, 
-            int(order_node['playerID']))
-    order.primary_territory = territories[int(order_node['targetTerritoryID'])]
-    order.card_id = order_node['cardInstanceID']
-    orders.append(order)
+def parse_blockade_order(turn, order_number, order_node, territories):
+    order = Order(
+        turn=turn,
+        order_number=order_number,
+        order_type = cache.get_order_type(order_node['type']),
+        player = cache.get_game_player(turn.game.id, 
+            int(order_node['playerID'])),
+        primary_territory = territories[int(order_node['targetTerritoryID'])],
+        card_id = order_node['cardInstanceID'])
+    orders_to_save.append(order)
 
 
 # Parses state transition Order
@@ -463,29 +497,27 @@ def import_state_transition_order(order, order_node):
 
 
 # Parses the Orders for a Turn
-def parse_orders(turn, order_nodes, territories, orders, territory_claims):
+def parse_orders(turn, order_nodes, territories):
     for order_number, order_node in enumerate(order_nodes):
         order_node = order_nodes[order_number]
         if order_node['type'] == 'GameOrderDeploy':
-            parse_deploy_order(turn, order_number, order_node, territories,
-                    orders)
+            parse_deploy_order(turn, order_number, order_node, territories)
         elif order_node['type'] == 'GameOrderAttackTransfer':
             parse_attack_transfer_order(turn, order_number, order_node,
-                    territories, orders, territory_claims)
+                    territories)
         elif order_node['type'] in [
                 'GameOrderReceiveCard', 
                 'GameOrderStateTransition']:
             # TODO Confirm that this is sufficient for State Transition
             # (not needed for 1v1 games where ai does not take over)
-            parse_basic_order(turn, order_number, order_node, orders)
+            parse_basic_order(turn, order_number, order_node)
         elif order_node['type'] in [
                 'GameOrderPlayCardReinforcement',
                 'GameOrderPlayCardOrderPriority',
                 'GameOrderPlayCardOrderDelay']:
-            parse_basic_play_card_order(turn, order_number, order_node, orders)
+            parse_basic_play_card_order(turn, order_number, order_node)
         elif order_node['type'] == 'GameOrderPlayCardBlockade':
-            parse_blockade_order(turn, order_number, order_node, territories,
-                    orders)
+            parse_blockade_order(turn, order_number, order_node, territories)
         elif order_node['type'] == 'GameOrderPlayCardSpy':
             # TODO not needed for 1v1 ladder
             pass
@@ -539,33 +571,27 @@ def import_turns(game, game_json):
     except KeyError:
         return
     
-    turns = []
-    orders = []
-    territory_claims = []
-
     # Import picks
     parse_picks_turn(game, picks_node, game_json['standing0'], territories,
-            cards_settings, orders, territory_claims)
+            cards_settings)
 
     for turn_number, turn_node in enumerate(turn_nodes):
         # create Turn object and set fields
         commit_date_time = datetime.strptime(turn_node['date'],
                 '%m/%d/%Y %H:%M:%S').replace(tzinfo=UTC)
-        turn = Turn(game=game, turn_number=turn_number,
-                commit_date_time=commit_date_time)
-        turn.save()
+        turn = Turn(
+            game=game,
+            turn_number=turn_number,
+            commit_date_time=commit_date_time)
     
-        parse_orders(turn, turn_node['orders'], territories, orders,
-                territory_claims)
+        parse_orders(turn, turn_node['orders'], territories)
 
-        turns.append(turn)
+        turns_to_save.append(turn)
 
     # Save Orders, Territory States, and Card States to DB
-    Order.objects.bulk_create(orders)
-    TerritoryClaim.objects.bulk_create(territory_claims)
 
     logging.debug(
-        f'Imported {game.number_of_turns} Turns and {len(orders)} Orders.'
+        f'Imported {game.number_of_turns} Turns.'
     )
 
     
@@ -606,10 +632,12 @@ def import_game(email, api_token, game_id, imported_games_count, ladder=None):
             )
             return False
 
-        game = Game(id=game_json['id'], name=game_json['name'], ladder=ladder,
-                number_of_turns=game_json['numberOfTurns'])
-        
-        game.template = get_template(game_json)
+        game = Game(
+            id=game_json['id'],
+            name=game_json['name'],
+            template=get_template(game_json),
+            ladder=ladder,
+            number_of_turns=game_json['numberOfTurns'])
 
         if int(map['id']) != game.template.map.id:
             # Map doesn't match the map in the template so the template has
@@ -617,12 +645,10 @@ def import_game(email, api_token, game_id, imported_games_count, ladder=None):
             # TODO add complete template compatibility checks
             return False
         else:
-            game.save()
-            
             add_players_to_game(game, game_json)
             import_turns(game, game_json)
+            games_to_save.append(game)
             
-            game.save()
             logging.debug(f'Finished importing Game {game_id}')
             return True
 
@@ -630,7 +656,7 @@ def import_game(email, api_token, game_id, imported_games_count, ladder=None):
 # Imports max_results Games (and associated data) from the specified ladder
 # starting from offset. For each Game, does nothing if the Game already exists
 def import_games(email, api_token, ladder_id, max_results, offset,
-        games_per_page, halt_if_exists):
+        games_per_page):
     # Initialize neutral players
     logging.info('Initializing neutral players')
     cache.set_neutral_players()
@@ -664,15 +690,24 @@ def import_games(email, api_token, ladder_id, max_results, offset,
         # If game_ids empty break
         if not game_ids:
             return imported_games_count
+
+        # Clear save queue
+        clear_save_queue()
         
         # Import each game if it does not yet exist
         for game_id in game_ids:
-            if import_game(email, api_token, game_id, imported_games_count,
-                    ladder):
+            if import_game(email, api_token, game_id,
+                    imported_games_count, ladder):
                 imported_games_count += 1
-            elif halt_if_exists:
-                return imported_games_count
-        
+
+        # Save Game objects to DB
+        Game.objects.bulk_create(games_to_save)
+        Player.objects.bulk_create(players_to_save)
+        GamePlayer.objects.bulk_create(game_players_to_save)
+        Turn.objects.bulk_create(turns_to_save)
+        Order.objects.bulk_create(orders_to_save)
+        TerritoryClaim.objects.bulk_create(territory_claims_to_save)
+
         results_left_to_get -= len(game_ids)
         offset +=games_per_page
     

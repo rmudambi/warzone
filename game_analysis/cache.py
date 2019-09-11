@@ -148,7 +148,7 @@ def add_to_players(player):
 def get_player(player_id):
     if player_id not in players:
         player = Player.objects.get(pk=player_id)
-        add_to_players(player, player_id)
+        add_to_players(player)
         
     return players[player_id]
 
