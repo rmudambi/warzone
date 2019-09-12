@@ -20,10 +20,7 @@ def home(request, message=None):
     return render(
         request,
         GAME_ANALYSIS + '/home.html',
-        {
-            'date': datetime.now(),
-            'message': message
-        }
+        {'date': datetime.now(), 'message': message}
     )
 
 
@@ -59,7 +56,7 @@ def import_ladder_games(request):
 
                 # Import games
                 count = import_games(email, api_token, ladder_id, max_results,
-                        offset, 50)
+                    offset, 50)
 
                 end_time = datetime.now()
 
@@ -76,13 +73,11 @@ def import_ladder_games(request):
         form = ImportLadderGamesForm()
     
     return render(request, GAME_ANALYSIS + '/import_ladder_games.html',
-            {'form': form})
+        {'form': form})
 
 
 def sandbox(request):
     return render(request, 
-        GAME_ANALYSIS + '/sandbox.html', 
-        {
-            'message': sandbox_method()
-        }
+        GAME_ANALYSIS + '/sandbox.html',
+        {'message': sandbox_method()}
     )

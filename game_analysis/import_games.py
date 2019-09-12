@@ -75,7 +75,7 @@ def get_territories(map, territories_node):
     # Import all Territories to the DB and add them to the dictionary
     for territory_node in territories_node:
         territory = Territory(map=map, api_id=int(territory_node['id']),
-                name=territory_node['name'])
+            name=territory_node['name'])
         territories[territory.api_id] = territory
     
     # Save Territories to DB
@@ -102,11 +102,11 @@ def import_bonuses(map, bonuses_node, territories):
     bonus_territories = []
     for bonus_node in bonuses_node:
         bonus = Bonus(map=map, api_id=bonus_node['id'],
-                name=bonus_node['name'], base_value=bonus_node['value'])
+            name=bonus_node['name'], base_value=bonus_node['value'])
         bonuses.append(bonus)
         for territory_id in bonus_node['territoryIDs']:
             territory = BonusTerritory(bonus=bonus, 
-                    territory=territories[territory_id])
+                territory=territories[territory_id])
             bonus_territories.append(territory)
 
     # Save Bonuses and Territories to DB
@@ -175,7 +175,7 @@ def get_cards_settings(template, settings_node):
 
     if reinforcement_card_node != 'none':
         reinforcement_card = get_base_card_settings(template, 
-                cache.get_card(1), reinforcement_card_node)
+            cache.get_card(1), reinforcement_card_node)
         # TODO support other reinforcement card modes - not needed for most 
         #   (all?) strategic templates
         reinforcement_card.mode = reinforcement_card_node['Mode']
@@ -184,7 +184,7 @@ def get_cards_settings(template, settings_node):
 
     if spy_card_node != 'none':
         spy_card = get_base_card_settings(template, cache.get_card(2),
-                spy_card_node)
+            spy_card_node)
         # TODO find node name for duration - not needed for most strategic
         #   templates
         # spy_card.duration = spy_card_node['Duration']
@@ -192,7 +192,7 @@ def get_cards_settings(template, settings_node):
 
     if abandon_card_node != 'none':
         abandon_card = get_base_card_settings(template, cache.get_card(3),
-                abandon_card_node)
+            abandon_card_node)
         # TODO find node name for value - not needed for most (all?) strategic
         #   templates
         # abandon_card.value = abandon_card_node['MultiplyAmount']
@@ -200,23 +200,23 @@ def get_cards_settings(template, settings_node):
 
     if op_card_node != 'none':
         cards_settings[4] = get_base_card_settings(template, cache.get_card(4),
-                op_card_node)
+            op_card_node)
 
     if od_card_node != 'none':
         cards_settings[5] = get_base_card_settings(template, cache.get_card(5),
-                op_card_node)
+            od_card_node)
 
     if airlift_card_node != 'none':
         cards_settings[6] = get_base_card_settings(template, cache.get_card(6),
-                op_card_node)
+            airlift_card_node)
 
     if gift_card_node != 'none':
         cards_settings[7] = get_base_card_settings(template, cache.get_card(7),
-                op_card_node)
+            gift_card_node)
 
     if diplomacy_card_node != 'none':
         diplomacy_card = get_base_card_settings(template, cache.get_card(8),
-                diplomacy_card_node)
+            diplomacy_card_node)
         # TODO find node namef or duration - not needed for most (all?)
         #   strategic templates
         # diplomacy_card.duration = diplomacy_card_node['Duration']
@@ -224,7 +224,7 @@ def get_cards_settings(template, settings_node):
 
     if sanctions_card_node != 'none':
         sanctions_card = get_base_card_settings(template, cache.get_card(9),
-                sanctions_card_node)
+            sanctions_card_node)
         # TODO find node name for value and duration - not needed for most
         #   strategic templates
         # sanctions_card.value = spy_card_node['SanctionValue']
@@ -233,7 +233,7 @@ def get_cards_settings(template, settings_node):
 
     if reconnaissance_card_node != 'none':
         reconnaissance_card = get_base_card_settings(template,
-                cache.get_card(10), reconnaissance_card_node)
+            cache.get_card(10), reconnaissance_card_node)
         # TODO find node name for duration - not needed for most strategic
         #   templates
         # reconnaissance_card.duration = reconnaissance_card_node['Duration']
@@ -241,7 +241,7 @@ def get_cards_settings(template, settings_node):
 
     if surveillance_card_node != 'none':
         surveillance_card = get_base_card_settings(template,
-                cache.get_card(11), surveillance_card_node)
+            cache.get_card(11), surveillance_card_node)
         # TODO find node name for duration - not needed for most (all?)
         #   strategic templates
         # surveillance_card.duration = surveillance_card_node['Duration']
@@ -249,13 +249,13 @@ def get_cards_settings(template, settings_node):
 
     if blockade_card_node != 'none':
         blockade_card = get_base_card_settings(template, cache.get_card(12),
-                blockade_card_node)
+            blockade_card_node)
         blockade_card.value = blockade_card_node['MultiplyAmount']
         cards_settings[12] = blockade_card
 
     if bomb_card_node != 'none':
         cards_settings[13] = get_base_card_settings(template,
-                cache.get_card(13), op_card_node)
+            cache.get_card(13), op_card_node)
     
     # Save Template Card Settings to DB
     TemplateCardSetting.objects.bulk_create(list(cards_settings.values()))
@@ -504,7 +504,7 @@ def parse_orders(turn, order_nodes, territories):
             parse_deploy_order(turn, order_number, order_node, territories)
         elif order_node['type'] == 'GameOrderAttackTransfer':
             parse_attack_transfer_order(turn, order_number, order_node,
-                    territories)
+                territories)
         elif order_node['type'] in [
                 'GameOrderReceiveCard', 
                 'GameOrderStateTransition']:
@@ -571,12 +571,12 @@ def import_turns(game, game_json):
     
     # Import picks
     parse_picks_turn(game, picks_node, game_json['standing0'], territories,
-            cards_settings)
+        cards_settings)
 
     for turn_number, turn_node in enumerate(turn_nodes):
         # create Turn object and set fields
         commit_date_time = datetime.strptime(turn_node['date'],
-                '%m/%d/%Y %H:%M:%S').replace(tzinfo=UTC)
+            '%m/%d/%Y %H:%M:%S').replace(tzinfo=UTC)
         turn = Turn(
             game=game,
             turn_number=turn_number,
@@ -678,7 +678,7 @@ def import_games(email, api_token, ladder_id, max_results, offset,
 
         try:
             game_ids = api.get_ladder_game_ids(ladder_id, offset,
-                    results_left_to_get)
+                results_left_to_get)
         except URLError as e:
             raise URLError(
                 f'Connection failed getting ladder games at offset {offset} '

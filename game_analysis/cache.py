@@ -113,8 +113,8 @@ def get_cards_settings(template_id):
     else:
         # And add the template and list of Card Settings to the dictionary
         cards_settings = {}
-        for card_settings in (TemplateCardSetting.objects
-                .filter(template_id=template_id)):
+        for card_settings in (
+                TemplateCardSetting.objects.filter(template_id=template_id)):
             cards_settings[card_settings.card_id] = card_settings
         
         return cards_settings
