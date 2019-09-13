@@ -10,7 +10,11 @@ from . import cache
 from .models import *
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    # format='%(asctime)s - %(message)s'
+    format='%(message)s'
+)
 
 
 # Lists of objects to save in bulk to DB
@@ -66,9 +70,8 @@ def add_players_to_game(game, game_json):
         game_players_to_save.append(game_player)
 
 
-# Import all territories to the DB for a given Map
-# Return a Dictionary mapping api ids to Territories
-def get_territories(map, territories_node):
+# Import all territories and bonuses to the DB for a given Map
+def import_territories_and_bonuses(map, territories_node, bonuses_node):
     # Dictionary of Territory api_ids to Territories
     territories = {}
 
@@ -91,13 +94,11 @@ def get_territories(map, territories_node):
             connections.append(
                 Connections(from_territory=territories[territory_id],
                     to_territory=territories[connection_id]))
-    
+
+    # Save Connections to DB
     Connections.objects.bulk_create(connections)
-    return territories
 
-
-# Import all bonuses to the DB for a given Map
-def import_bonuses(map, bonuses_node, territories):
+    # Import Bonuses and BonusTerritories
     bonuses = []
     bonus_territories = []
     for bonus_node in bonuses_node:
@@ -114,7 +115,12 @@ def import_bonuses(map, bonuses_node, territories):
     BonusTerritory.objects.bulk_create(bonus_territories)
 
 
-# Fetches Map from dictionary if it exists.
+# Gets the Territory specified by the map id and territory id
+def get_territory(map_id, territory_id):
+    return cache.get_territory(map_id, territory_id, True)
+
+
+# Fetches Mapfor_importonary if it exists.
 # Otherwise, fetches Map from DB if it exists there and creates territories 
 # dictionary. Otherwise creates Map from Node, saves it to DB and dictionary,
 # and creates territories dictionary. Returns Map
@@ -124,7 +130,7 @@ def get_map(map_node):
 
     try:
         # Get Map if it exists already
-        return cache.get_map(map_id)
+        return cache.get_map(map_id, True)
     except Map.DoesNotExist:
         # Otherwise, create map and save it to the DB
         logging.info(f'Creating Map {map_id}')
@@ -132,10 +138,10 @@ def get_map(map_node):
         map.save()
         
         # Import Territories and Bonuses
-        territories = get_territories(map, map_node['territories'])
-        import_bonuses(map, map_node['bonuses'], territories)
+        import_territories_and_bonuses(map, map_node['territories'],
+            map_node['bonuses'])
 
-        cache.add_to_maps(map, territories)
+        cache.add_map_to_cache(map_id, True)
         return map
 
 
@@ -332,8 +338,7 @@ def get_template(game_json):
 
 
 # Parse the picks turn
-def parse_picks_turn(game, picks_node, state_node, territories,
-        cards_settings):
+def parse_picks_turn(game, map_id, picks_node, state_node):
     turn = Turn(game=game, turn_number=-1)
     
     # Get pick results
@@ -360,7 +365,7 @@ def parse_picks_turn(game, picks_node, state_node, territories,
         game_player = cache.get_game_player(game.id, player_api_id)
     
         for pick, territory_id in enumerate(picks_node[player_node_key]):
-            territory = territories[territory_id]
+            territory = get_territory(map_id, territory_id)
             is_successful = territory.api_id in raw_pick_results[player_api_id]
             parse_pick_order(territory, turn, order_number, False, game_player,
                 is_successful)
@@ -377,9 +382,8 @@ def parse_picks_turn(game, picks_node, state_node, territories,
     for player_api_id in raw_pick_results:
         game_player = cache.get_game_player(game.id, player_api_id)
         for territory_id in raw_pick_results[player_api_id]:
-            territory = territories[territory_id]
-            parse_pick_order(territory, turn, order_number, True, game_player,
-                True)
+            parse_pick_order(get_territory(map_id, territory_id), turn,
+                order_number, True, game_player, True)
             
             order_number += 1
 
@@ -420,28 +424,28 @@ def parse_basic_order(turn, order_number, order_node):
 
 
 # Parse deploy Order
-def parse_deploy_order(turn, order_number, order_node, territories):
+def parse_deploy_order(turn, map_id, order_number, order_node):
     order = Order(
         turn=turn,
         order_number=order_number,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_game_player(turn.game.id, 
             int(order_node['playerID'])),
-        primary_territory = territories[int(order_node['deployOn'])],
+        primary_territory = get_territory(map_id, int(order_node['deployOn'])),
         armies = order_node['armies'])
     orders_to_save.append(order)
 
 
 # Parse attack/transfer Order
-def parse_attack_transfer_order(turn, order_number, order_node, territories):
+def parse_attack_transfer_order(turn, map_id, order_number, order_node):
     order = Order(
         turn=turn,
         order_number=order_number,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_game_player(turn.game.id, 
             int(order_node['playerID'])),
-        primary_territory = territories[int(order_node['from'])],
-        secondary_territory = territories[int(order_node['to'])],
+        primary_territory = get_territory(map_id, int(order_node['from'])),
+        secondary_territory = get_territory(map_id, int(order_node['to'])),
         armies = order_node['numArmies'])
     orders_to_save.append(order)
     
@@ -477,14 +481,15 @@ def parse_basic_play_card_order(turn, order_number, order_node):
 
 
 # Parse blockade Order
-def parse_blockade_order(turn, order_number, order_node, territories):
+def parse_blockade_order(turn, map_id, order_number, order_node):
     order = Order(
         turn=turn,
         order_number=order_number,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_game_player(turn.game.id, 
             int(order_node['playerID'])),
-        primary_territory = territories[int(order_node['targetTerritoryID'])],
+        primary_territory = get_territory(map_id,
+            int(order_node['targetTerritoryID'])),
         card_id = order_node['cardInstanceID'])
     orders_to_save.append(order)
 
@@ -497,14 +502,13 @@ def import_state_transition_order(order, order_node):
 
 
 # Parses the Orders for a Turn
-def parse_orders(turn, order_nodes, territories):
+def parse_orders(turn, map_id, order_nodes):
     for order_number, order_node in enumerate(order_nodes):
         order_node = order_nodes[order_number]
         if order_node['type'] == 'GameOrderDeploy':
-            parse_deploy_order(turn, order_number, order_node, territories)
+            parse_deploy_order(turn, map_id, order_number, order_node)
         elif order_node['type'] == 'GameOrderAttackTransfer':
-            parse_attack_transfer_order(turn, order_number, order_node,
-                territories)
+            parse_attack_transfer_order(turn, map_id, order_number, order_node)
         elif order_node['type'] in [
                 'GameOrderReceiveCard', 
                 'GameOrderStateTransition']:
@@ -517,7 +521,7 @@ def parse_orders(turn, order_nodes, territories):
                 'GameOrderPlayCardOrderDelay']:
             parse_basic_play_card_order(turn, order_number, order_node)
         elif order_node['type'] == 'GameOrderPlayCardBlockade':
-            parse_blockade_order(turn, order_number, order_node, territories)
+            parse_blockade_order(turn, map_id, order_number, order_node)
         elif order_node['type'] == 'GameOrderPlayCardSpy':
             # TODO not needed for 1v1 ladder
             pass
@@ -542,7 +546,7 @@ def parse_orders(turn, order_nodes, territories):
 
 
 # Import Turns into the DB
-def import_turns(game, game_json):
+def import_turns(game, map_id, game_json):
     logging.debug(f'Importing Turns for Game {game.id}')
     # Create list of turn nodes
     turn_nodes = []
@@ -560,9 +564,6 @@ def import_turns(game, game_json):
     #   the state after a turn rather than before
     standing_nodes = standing_nodes[1:]
 
-    territories = cache.get_territories(game.template.map_id)
-    cards_settings = cache.get_cards_settings(game.template_id)
-    
     # Get picks node for manual distribution games - otherwise use empty list
     try:
         picks_node = game_json['picks']
@@ -570,8 +571,7 @@ def import_turns(game, game_json):
         picks_node = []
     
     # Import picks
-    parse_picks_turn(game, picks_node, game_json['standing0'], territories,
-        cards_settings)
+    parse_picks_turn(game, map_id, picks_node, game_json['standing0'])
 
     for turn_number, turn_node in enumerate(turn_nodes):
         # create Turn object and set fields
@@ -582,7 +582,7 @@ def import_turns(game, game_json):
             turn_number=turn_number,
             commit_date_time=commit_date_time)
     
-        parse_orders(turn, turn_node['orders'], territories)
+        parse_orders(turn, map_id, turn_node['orders'])
 
         turns_to_save.append(turn)
 
@@ -630,21 +630,23 @@ def import_game(email, api_token, game_id, imported_games_count, ladder=None):
             )
             return False
 
+        template = get_template(game_json)
+
         game = Game(
             id=game_json['id'],
             name=game_json['name'],
-            template=get_template(game_json),
+            template=template,
             ladder=ladder,
             number_of_turns=game_json['numberOfTurns'])
 
-        if int(map['id']) != game.template.map.id:
+        if int(map['id']) != template.map_id:
             # Map doesn't match the map in the template so the template has
             #   changed
             # TODO add complete template compatibility checks
             return False
         else:
             add_players_to_game(game, game_json)
-            import_turns(game, game_json)
+            import_turns(game, template.map_id, game_json)
             games_to_save.append(game)
             
             logging.debug(f'Finished importing Game {game_id}')

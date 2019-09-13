@@ -1,7 +1,8 @@
 import logging
 
-from .models import Card, GamePlayer, Map, OrderType, Player, PlayerStateType
-from .models import Template, TemplateCardSetting, Territory
+from .models import Card, Game, GamePlayer, Map, Order, OrderType, Player
+from .models import PlayerStateType, Template, TemplateCardSetting, Territory
+from .models import Turn
 
 # Dictionary from card id -> card
 cards = {}
@@ -19,8 +20,7 @@ neutral_players = {}
 #   {card id -> card settings}}
 templates = {}
 
-# Dictionary from map id -> {'map': map,  'territories': 
-#   {territory api id -> territory}}
+# Dictionary from map id -> MapWrapper
 maps = {}
 
 # Dictionary from player id -> player
@@ -28,6 +28,44 @@ players = {}
 
 # Dictionary from player id -> game player
 game_players = {}
+
+
+class TerritoryWrapper():
+    def __init__(self, territory, use_api_ids):
+        self.territory = territory
+        self.connected_territory_ids = {
+            to_territory.api_id if use_api_ids else to_territory.pk
+            for to_territory in territory.connected_territories.all()
+        }
+        self.bonus_ids = {
+            bonus.api_id if use_api_ids else bonus.pk
+            for bonus in territory.bonuses.all()
+        }
+
+
+class BonusWrapper():
+    def __init__(self, bonus, use_api_ids):
+        self.bonus = bonus
+        self.territory_ids = {
+            territory.api_id if use_api_ids else territory.pk
+            for territory in bonus.territories.all()
+        }
+
+
+class MapWrapper():
+    def __init__(self, map, use_api_ids):
+        self.map = map
+        self.uses_api_ids = use_api_ids
+        self.territories = {
+            territory.api_id if use_api_ids else territory.pk:
+                TerritoryWrapper(territory, use_api_ids)
+            for territory in map.territory_set.all()
+        }
+        self.bonuses = {
+            bonus.api_id if use_api_ids else bonus.pk:
+                BonusWrapper(bonus, use_api_ids)
+            for bonus in map.bonus_set.all()
+        }
 
 
 # Get Card
@@ -62,23 +100,35 @@ def set_neutral_players():
     neutral_players['AvailableForDistribution'] = Player.objects.get(pk=1)
 
 
-# Adds Map and Territories to maps
-def add_to_maps(map, territories):
-    maps[map.id] = {'map': map, 'territories': territories}
+# Add MapWrapper to cache
+def add_map_to_cache(map_id, for_import):
+    prefetches = ((
+        'territory_set',
+    ) if for_import else (
+        'territory_set__connected_territories',
+        'territory_set__bonuses',
+        'bonus_set__territories'
+    ))
+
+    maps[map_id] = MapWrapper(
+        Map.objects.prefetch_related(*prefetches).get(pk=map_id),
+        for_import
+    )
 
 
-# Adds the Territories of the Map to the input dictionary along with the Map
-# itself
-def get_territories(map_id):
-    if map_id in maps:
-        return maps[map_id]['territories']
-    else:
-        # Create a Dictionary of the Map's Territories
-        territories = {}
-        for territory in Territory.objects.filter(map_id=map_id):
-            territories[territory.api_id] = territory
+# Get Territory
+def get_territory(map_id, territory_id, for_import):
+    return get_territory_wrapper(map_id, territory_id, for_import).territory
 
-        return territories
+
+# Get TerritoryWrapper
+def get_territory_wrapper(map_id, territory_id, for_import):
+    # If the Map is not in the Dictionary or the Map is in the wrong format
+    if map_id not in maps or maps[map_id].uses_api_ids != for_import:
+        # Add the MapWrapper to the cache
+        add_map_to_cache(map_id, for_import)
+
+    return maps[map_id].territories[territory_id]
 
 
 # Fetches Map from dictionary if it exists.
@@ -86,17 +136,15 @@ def get_territories(map_id):
 # dictionary. Throws Maps.DoesNotExist if Map doesn't exist in the DB
 # Adds Map and Territories to maps
 # Returns Map
-def get_map(map_id):
+def get_map(map_id, for_import):
     logging.debug(f'Getting Map {map_id}')
+
     # If map is not in the dictionary
-    if map_id not in maps:
-        map = Map.objects.get(pk=map_id)
-            
-        territories = get_territories(maps, map_id)
-        add_to_maps(map, territories)
+    if map_id not in maps or maps[map_id].uses_api_ids != for_import:
+        add_map_to_cache(map_id, for_import)
 
     # Return map
-    return maps[map_id]['map']
+    return maps[map_id].map
 
 
 # Adds Template and Cards Settings to templates
