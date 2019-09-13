@@ -120,12 +120,12 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-LOGGING = {
-    # ...
-    'version': 1,
-    'loggers': {
-        'django.db.backends': {
-            'level': 'DEBUG',
-        },
-    },
-}
+# LOGGING = {
+#     # ...
+#     'version': 1,
+#     'loggers': {
+#         'django.db.backends': {
+#             'level': 'DEBUG',
+#         },
+#     },
+# }

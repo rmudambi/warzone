@@ -44,7 +44,7 @@ def import_player(player_node):
         return cache.get_player(int(player_node['id']))
     except Player.DoesNotExist:
         player = Player(id=int(player_node['id']), name=player_node['name'])
-        cache.add_to_players(player)
+        cache.add_player_to_cache(player)
         players_to_save.append(player)
         return player
 
@@ -66,7 +66,7 @@ def add_players_to_game(game, game_json):
         # Create GamePlayer and save to cache and DB
         end_state = cache.get_player_state_type(player_node['state'])
         game_player = GamePlayer(game=game, player=player, end_state=end_state)
-        cache.add_to_game_players(game_player, player.get_api_id())
+        cache.add_game_player_to_cache(game_player, player.get_api_id())
         game_players_to_save.append(game_player)
 
 
@@ -151,117 +151,71 @@ def import_overridden_bonuses(template, overridden_bonus_nodes):
     pass
 
 
-# Create Template Card Settings initialized with all common fields
-def get_base_card_settings(template, card, card_node):
-    card_settings = TemplateCardSetting(template=template, card=card)
-    card_settings.number_of_pieces = card_node['NumPieces']
-    card_settings.initial_pieces = card_node['InitialPieces']
-    card_settings.min_pieces_per_turn = card_node['MinimumPiecesPerTurn']
-    card_settings.weight = card_node['Weight']
-    return card_settings
+# Import Template Card Settings
+def import_card_settings(cards_settings, template, card_id, settings_node,
+        field_mappings):
+    card = cache.get_card(card_id)
+    card_node = settings_node[card.name.replace(' ', '')]
+
+    if card_node != 'none':
+        fields = {
+            'template': template,
+            'card': card,
+            'number_of_pieces': card_node['NumPieces'],
+            'initial_pieces': card_node['InitialPieces'],
+            'min_pieces_per_turn': card_node['MinimumPiecesPerTurn'],
+            'weight': card_node['Weight'],
+            'mode': None,
+            'value': None,
+            'duration': None
+        }
+        
+        for db_field_name in field_mappings:
+            fields[db_field_name] = card_node[field_mappings[db_field_name]]
+        
+        cards_settings[card_id] = TemplateCardSetting(**fields)
 
 
 # Import Card Settings to the DB for a given Template
-def get_cards_settings(template, settings_node):
+def import_cards_settings(template, settings_node):
+    # List of custom argument for the settings of each card type
+    # Key is the field in the DB
+    # Value is the corresponding key in the API
+    field_mappings = (
+        # Reinforcement
+        # TODO support other reinforcement card modes
+        # not needed for most (all?) strategic templates
+        {'mode': 'Mode', 'value': 'FixedArmies'},
+        # Spy
+        {'mode': 'CanSpyOnNeutral', 'duration': 'Duration'},
+        # Abandon
+        {'value': 'MultiplyAmount'},
+        # Order Priority
+        {},
+        # Order Delay
+        {},
+        # Airlift
+        {},
+        # Gift
+        {},
+        # Diplomacy
+        {'duration': 'Duration'},
+        # Sanctions
+        {'value': 'Percentage', 'duration': 'Duration'},
+        # Reconnaissance
+        {'duration': 'Duration'},
+        # Surveillance
+        {'duration': 'Duration'},
+        # Blockade
+        {'value': 'MultiplyAmount'},
+        # Bomb
+        {}
+    )
+
     cards_settings = {}
-
-    reinforcement_card_node = settings_node['ReinforcementCard']
-    spy_card_node = settings_node['SpyCard']
-    abandon_card_node = settings_node['AbandonCard']
-    op_card_node = settings_node['OrderPriorityCard']
-    od_card_node = settings_node['OrderDelayCard']
-    airlift_card_node = settings_node['AirliftCard']
-    gift_card_node = settings_node['GiftCard']
-    diplomacy_card_node = settings_node['DiplomacyCard']
-    sanctions_card_node = settings_node['SanctionsCard']
-    reconnaissance_card_node = settings_node['ReconnaissanceCard']
-    surveillance_card_node = settings_node['SurveillanceCard']
-    blockade_card_node = settings_node['BlockadeCard']
-    bomb_card_node = settings_node['BombCard']
-
-    if reinforcement_card_node != 'none':
-        reinforcement_card = get_base_card_settings(template, 
-            cache.get_card(1), reinforcement_card_node)
-        # TODO support other reinforcement card modes - not needed for most 
-        #   (all?) strategic templates
-        reinforcement_card.mode = reinforcement_card_node['Mode']
-        reinforcement_card.value = reinforcement_card_node['FixedArmies']
-        cards_settings[1] = reinforcement_card
-
-    if spy_card_node != 'none':
-        spy_card = get_base_card_settings(template, cache.get_card(2),
-            spy_card_node)
-        # TODO find node name for duration - not needed for most strategic
-        #   templates
-        # spy_card.duration = spy_card_node['Duration']
-        cards_settings[2] = spy_card
-
-    if abandon_card_node != 'none':
-        abandon_card = get_base_card_settings(template, cache.get_card(3),
-            abandon_card_node)
-        # TODO find node name for value - not needed for most (all?) strategic
-        #   templates
-        # abandon_card.value = abandon_card_node['MultiplyAmount']
-        cards_settings[3] = abandon_card
-
-    if op_card_node != 'none':
-        cards_settings[4] = get_base_card_settings(template, cache.get_card(4),
-            op_card_node)
-
-    if od_card_node != 'none':
-        cards_settings[5] = get_base_card_settings(template, cache.get_card(5),
-            od_card_node)
-
-    if airlift_card_node != 'none':
-        cards_settings[6] = get_base_card_settings(template, cache.get_card(6),
-            airlift_card_node)
-
-    if gift_card_node != 'none':
-        cards_settings[7] = get_base_card_settings(template, cache.get_card(7),
-            gift_card_node)
-
-    if diplomacy_card_node != 'none':
-        diplomacy_card = get_base_card_settings(template, cache.get_card(8),
-            diplomacy_card_node)
-        # TODO find node namef or duration - not needed for most (all?)
-        #   strategic templates
-        # diplomacy_card.duration = diplomacy_card_node['Duration']
-        cards_settings[8] = diplomacy_card
-
-    if sanctions_card_node != 'none':
-        sanctions_card = get_base_card_settings(template, cache.get_card(9),
-            sanctions_card_node)
-        # TODO find node name for value and duration - not needed for most
-        #   strategic templates
-        # sanctions_card.value = spy_card_node['SanctionValue']
-        # sanctions_card.duration = sanctions_card_node['Duration']
-        cards_settings[9] = sanctions_card
-
-    if reconnaissance_card_node != 'none':
-        reconnaissance_card = get_base_card_settings(template,
-            cache.get_card(10), reconnaissance_card_node)
-        # TODO find node name for duration - not needed for most strategic
-        #   templates
-        # reconnaissance_card.duration = reconnaissance_card_node['Duration']
-        cards_settings[10] = reconnaissance_card
-
-    if surveillance_card_node != 'none':
-        surveillance_card = get_base_card_settings(template,
-            cache.get_card(11), surveillance_card_node)
-        # TODO find node name for duration - not needed for most (all?)
-        #   strategic templates
-        # surveillance_card.duration = surveillance_card_node['Duration']
-        cards_settings[11] = surveillance_card
-
-    if blockade_card_node != 'none':
-        blockade_card = get_base_card_settings(template, cache.get_card(12),
-            blockade_card_node)
-        blockade_card.value = blockade_card_node['MultiplyAmount']
-        cards_settings[12] = blockade_card
-
-    if bomb_card_node != 'none':
-        cards_settings[13] = get_base_card_settings(template,
-            cache.get_card(13), op_card_node)
+    for index, card_field_mappings in enumerate(field_mappings):
+        import_card_settings(cards_settings, template, index + 1,
+            settings_node, card_field_mappings)
     
     # Save Template Card Settings to DB
     TemplateCardSetting.objects.bulk_create(list(cards_settings.values()))
@@ -331,9 +285,9 @@ def get_template(game_json):
         template.save()
 
         import_overridden_bonuses(template, settings['OverriddenBonuses'])
-        cards_settings = get_cards_settings(template, settings)
+        import_cards_settings(template, settings)
 
-        cache.add_to_templates(template, cards_settings)
+        cache.add_template_to_cache(template)
         return template
 
 

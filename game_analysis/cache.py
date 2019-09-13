@@ -16,8 +16,7 @@ order_types = {}
 # Neutral and AvailableForDistribution "Players"
 neutral_players = {}
 
-# Dictionary from template id -> {'template': template, 'cards_settings': 
-#   {card id -> card settings}}
+# Dictionary from template id -> template
 templates = {}
 
 # Dictionary from map id -> MapWrapper
@@ -148,24 +147,8 @@ def get_map(map_id, for_import):
 
 
 # Adds Template and Cards Settings to templates
-def add_to_templates(template, cards_settings):
-    templates[template.id] = {
-        'template': template,
-        'cards_settings': cards_settings
-    }
-
-
-def get_cards_settings(template_id):
-    if template_id in templates:
-        return templates[template_id]['cards_settings']
-    else:
-        # And add the template and list of Card Settings to the dictionary
-        cards_settings = {}
-        for card_settings in (
-                TemplateCardSetting.objects.filter(template_id=template_id)):
-            cards_settings[card_settings.card_id] = card_settings
-        
-        return cards_settings
+def add_template_to_cache(template):
+    templates[template.id] = template
 
 
 # Fetches Template from imput template dictionary if it exists
@@ -177,15 +160,14 @@ def get_template(template_id):
     if template_id  not in templates:
         template = Template.objects.get(pk=template_id)
 
-        cards_settings = get_cards_settings(template_id)
-        add_to_templates(template, cards_settings)
+        add_template_to_cache(template)
 
     # Return template from dictionary
-    return templates[template_id]['template']
+    return templates[template_id]
 
 
 # Add the player to the players cache
-def add_to_players(player):
+def add_player_to_cache(player):
     players[player.id] = player
 
 
@@ -196,7 +178,7 @@ def add_to_players(player):
 def get_player(player_id):
     if player_id not in players:
         player = Player.objects.get(pk=player_id)
-        add_to_players(player)
+        add_player_to_cache(player)
         
     return players[player_id]
 
@@ -208,7 +190,7 @@ def clear_game_players():
 
 # Add the player to the players cache. Uses Player ID as default, but will key
 # on input ID if provided
-def add_to_game_players(game_player, key):
+def add_game_player_to_cache(game_player, key):
     game_players[key] = game_player
 
 
@@ -223,6 +205,6 @@ def get_game_player(game_id, player_id, id_key_different=False):
             game_id=game_id,
             player_id=player_id)
         id = game_player.get_api_id() if id_key_different else game_player.id
-        game_players[id] = game_player
+        add_game_player_to_cache(game_player, id)
         
     return game_players[player_id]
