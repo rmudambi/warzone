@@ -51,8 +51,6 @@ def import_player(player_node):
 
 # Add Player data to Game
 def add_players_to_game(game, game_json):
-    # Reset game players cache
-    cache.clear_game_players()
     players = []
     game_players = []
 
@@ -63,9 +61,14 @@ def add_players_to_game(game, game_json):
         # Get the player
         player = import_player(player_node)
 
-        # Create GamePlayer and save to cache and DB
-        end_state = cache.get_player_state_type(player_node['state'])
-        game_player = GamePlayer(game=game, player=player, end_state=end_state)
+        # Create GamePlayer
+        game_player = GamePlayer(
+            game=game,
+            player=player,
+            end_state=cache.get_player_state_type(player_node['state'])
+        )
+
+        #  Save GamePlayer to cache and queue to be saved to DB
         cache.add_game_player_to_cache(game_player, player.get_api_id())
         game_players_to_save.append(game_player)
 
@@ -507,16 +510,6 @@ def import_turns(game, map_id, game_json):
     for key in game_json:
         if key.startswith('turn'):
             turn_nodes.append(game_json[key])
-    
-    # Create list of state nodes
-    standing_nodes = []
-    for key in game_json:
-        if key.startswith('standing'):
-            standing_nodes.append(game_json[key])
-
-    # Shift standing one index to the left so that a standing corresponds to
-    #   the state after a turn rather than before
-    standing_nodes = standing_nodes[1:]
 
     # Get picks node for manual distribution games - otherwise use empty list
     try:
@@ -552,6 +545,8 @@ def import_turns(game, map_id, game_json):
 # Returns True if the Game is imported and False otherwise
 def import_game(email, api_token, game_id, imported_games_count, ladder=None):
     logging.debug(f'Importing game {game_id}')
+    cache.clear_games_from_cache()
+
     try:
         # Check if Game already exists
         Game.objects.get(pk=game_id)
@@ -586,19 +581,21 @@ def import_game(email, api_token, game_id, imported_games_count, ladder=None):
 
         template = get_template(game_json)
 
-        game = Game(
-            id=game_json['id'],
-            name=game_json['name'],
-            template=template,
-            ladder=ladder,
-            number_of_turns=game_json['numberOfTurns'])
-
         if int(map['id']) != template.map_id:
             # Map doesn't match the map in the template so the template has
             #   changed
             # TODO add complete template compatibility checks
             return False
         else:
+            game = Game(
+                id=game_json['id'],
+                name=game_json['name'],
+                template=template,
+                ladder=ladder,
+                number_of_turns=game_json['numberOfTurns']
+            )
+
+            cache.add_game_to_cache(game, {})
             add_players_to_game(game, game_json)
             import_turns(game, template.map_id, game_json)
             games_to_save.append(game)

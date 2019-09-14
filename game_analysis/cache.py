@@ -25,8 +25,8 @@ maps = {}
 # Dictionary from player id -> player
 players = {}
 
-# Dictionary from player id -> game player
-game_players = {}
+# Dictionary from game id -> GameWrapper
+games = {}
 
 
 class TerritoryWrapper():
@@ -64,6 +64,20 @@ class MapWrapper():
             bonus.api_id if use_api_ids else bonus.pk:
                 BonusWrapper(bonus, use_api_ids)
             for bonus in map.bonus_set.all()
+        }
+
+
+class GamePlayerWrapper():
+    def __init__(self, game_player):
+        self.game_player = game_player
+
+
+class GameWrapper():
+    def __init__(self, game, game_players=None):
+        self.game = game
+        self.game_players = game_players if game_players != None else {
+            game_player.id: GamePlayerWrapper(game_player)
+                for game_player in game.gameplayer_set.all()
         }
 
 
@@ -183,28 +197,27 @@ def get_player(player_id):
     return players[player_id]
 
 
-# Clears the players cache
-def clear_game_players():
-    game_players = {}
+# Add the player to the players cache
+def add_game_player_to_cache(game_player, id):
+    (games[game_player.game_id]
+        .game_players[id]) = GamePlayerWrapper(game_player)
 
 
-# Add the player to the players cache. Uses Player ID as default, but will key
-# on input ID if provided
-def add_game_player_to_cache(game_player, key):
-    game_players[key] = game_player
+# Fetches GamePlayer from cache
+def get_game_player(game_id, player_id):
+    return games[game_id].game_players[player_id].game_player
 
 
-# Fetches GamePlayer from DB if it exists.
-# Throws GamePlayer.DoesNotExist if GamePlayer doesn't exist in the DB
-# Add the player to the players cache. Uses Player ID as default, but keys on
-# API ID if id_key_different == True
-# Returns Player
-def get_game_player(game_id, player_id, id_key_different=False):
-    if player_id not in game_players:
-        game_player = GamePlayer.objects.get(
-            game_id=game_id,
-            player_id=player_id)
-        id = game_player.get_api_id() if id_key_different else game_player.id
-        add_game_player_to_cache(game_player, id)
-        
-    return game_players[player_id]
+# Clears all games from cache
+def clear_games_from_cache():
+    games.clear()
+
+
+# Add Game to cache
+def add_game_to_cache(game, game_players=None):
+    games[game.id] = GameWrapper(game, game_players)
+
+
+# Get Game from cache
+def get_game(game_id):
+    return games[game_id].game
