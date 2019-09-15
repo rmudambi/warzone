@@ -314,6 +314,7 @@ def parse_picks_turn(game, map_id, picks_node, state_node):
                 raw_pick_results[territory_owner].add(territory)
 
     order_number = 0
+    initial_armies = cache.get_template(game.template_id).initial_armies
 
     for player_number, player_node_key in enumerate(picks_node):
         # Get Player from node by stripping the prefix ('player_') and looking
@@ -325,7 +326,7 @@ def parse_picks_turn(game, map_id, picks_node, state_node):
             territory = get_territory(map_id, territory_id)
             is_successful = territory.api_id in raw_pick_results[player_api_id]
             parse_pick_order(territory, turn, order_number, False, game_player,
-                is_successful)
+                is_successful, initial_armies)
             
             # If the player controls the territory after picks
             if is_successful:
@@ -349,21 +350,20 @@ def parse_picks_turn(game, map_id, picks_node, state_node):
 
 # Parse pick Order
 def parse_pick_order(territory, turn, order_number, is_auto_pick, game_player,
-        is_successful):
-    order_type_id = 'GameOrderAutoPick' if is_auto_pick else 'GameOrderPick'
-    attack_transfer_id = 'AutoPick' if is_auto_pick else 'Pick'
-
+        is_successful, initial_armies):
     order = Order(
-        turn=turn,
-        order_number=order_number,
-        order_type=cache.get_order_type(order_type_id),
-        player=game_player,
-        primary_territory=territory)
+        turn = turn,
+        order_number = order_number,
+        order_type = cache.get_order_type(
+            'GameOrderAutoPick' if is_auto_pick else 'GameOrderPick'),
+        player = game_player,
+        primary_territory = territory)
 
     territory_claim = TerritoryClaim(
-        order=order,
-        attack_transfer=attack_transfer_id,
-        is_successful=is_successful)
+        order = order,
+        attack_transfer = 'AutoPick' if is_auto_pick else 'Pick',
+        attack_size = initial_armies,
+        is_successful = is_successful)
 
     orders_to_save.append(order)
     territory_claims_to_save.append(territory_claim)
@@ -372,8 +372,8 @@ def parse_pick_order(territory, turn, order_number, is_auto_pick, game_player,
 # Parse basic Order
 def parse_basic_order(turn, order_number, order_node):
     order = Order(
-        turn=turn,
-        order_number=order_number,
+        turn = turn,
+        order_number = order_number,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_game_player(turn.game.id, 
             int(order_node['playerID'])))
@@ -383,8 +383,8 @@ def parse_basic_order(turn, order_number, order_node):
 # Parse deploy Order
 def parse_deploy_order(turn, map_id, order_number, order_node):
     order = Order(
-        turn=turn,
-        order_number=order_number,
+        turn = turn,
+        order_number = order_number,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_game_player(turn.game.id, 
             int(order_node['playerID'])),
@@ -409,7 +409,7 @@ def parse_attack_transfer_order(turn, map_id, order_number, order_node):
     # Parse AttackResult node
     result_node = order_node['result']
     territory_claim = TerritoryClaim(
-        order=order,
+        order = order,
         attack_transfer = order_node['attackTransfer'],
         is_attack_teammates = order_node['attackTeammates'],
         is_attack_by_percent = order_node['byPercent'],
@@ -429,7 +429,7 @@ def parse_attack_transfer_order(turn, map_id, order_number, order_node):
 def parse_basic_play_card_order(turn, order_number, order_node):
     order = Order(
         turn=turn,
-        order_number=order_number,
+        order_number = order_number,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_game_player(turn.game.id, 
             int(order_node['playerID'])),
@@ -441,7 +441,7 @@ def parse_basic_play_card_order(turn, order_number, order_node):
 def parse_blockade_order(turn, map_id, order_number, order_node):
     order = Order(
         turn=turn,
-        order_number=order_number,
+        order_number = order_number,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_game_player(turn.game.id, 
             int(order_node['playerID'])),
