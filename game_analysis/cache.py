@@ -1,9 +1,9 @@
 import logging
 
-from .models import Card, Game, GamePlayer, Map, Order, OrderType, Player
+from .models import Card, Game, Player, Map, Order, OrderType, PlayerAccount
 from .models import PlayerStateType, Template, TemplateCardSetting, Territory
 from .models import Turn
-from .wrappers import BonusWrapper, GamePlayerWrapper, GameWrapper, MapWrapper
+from .wrappers import BonusWrapper, PlayerWrapper, GameWrapper, MapWrapper
 from .wrappers import TerritoryWrapper
 
 # Dictionary from card id -> card
@@ -24,8 +24,8 @@ templates = {}
 # Dictionary from map id -> MapWrapper
 maps = {}
 
-# Dictionary from player id -> player
-players = {}
+# Dictionary from player account id -> player account
+player_accounts = {}
 
 # Dictionary from game id -> GameWrapper
 games = {}
@@ -59,8 +59,8 @@ def get_order_type(id=id):
 
 # Set Neutral "Players"
 def set_neutral_players():
-    neutral_players['Neutral'] = Player.objects.get(pk=0)
-    neutral_players['AvailableForDistribution'] = Player.objects.get(pk=1)
+    neutral_players['Neutral'] = PlayerAccount.objects.get(pk=0)
+    neutral_players['AvailableForDistribution'] = PlayerAccount.objects.get(pk=1)
 
 
 # Add MapWrapper to cache
@@ -130,32 +130,31 @@ def get_template(template_id):
     return templates[template_id]
 
 
-# Add the player to the players cache
-def add_player_to_cache(player):
-    players[player.id] = player
+# Add the player account to the player accounts cache
+def add_player_account_to_cache(player_account):
+    player_accounts[player_account.id] = player_account
 
 
-# Fetches Player from DB if it exists.
-# Throws Player.DoesNotExist if Player doesn't exist in the DB
-# Add the player to the players cache. Uses Player ID as key
+# Fetches PlayerAccount from DB if it exists.
+# Throws PlayerAccount.DoesNotExist if PlayerAccount doesn't exist in the DB
+# Add the player account to the player accounts cache. Uses ID as key
 # Returns Player
-def get_player(player_id):
-    if player_id not in players:
-        player = Player.objects.get(pk=player_id)
-        add_player_to_cache(player)
+def get_player_account(player_account_id):
+    if player_account_id not in player_accounts:
+        player_account = PlayerAccount.objects.get(pk=player_account_id)
+        add_player_account_to_cache(player_account)
         
-    return players[player_id]
+    return player_accounts[player_account_id]
 
 
-# Add the player to the players cache
-def add_game_player_to_cache(game_player, id):
-    (games[game_player.game_id]
-        .game_players[id]) = GamePlayerWrapper(game_player)
+# Add the Player to the players cache
+def add_player_to_cache(player, id):
+    games[player.game_id].players[id] = PlayerWrapper(player)
 
 
-# Fetches GamePlayer from cache
-def get_game_player(game_id, player_id):
-    return games[game_id].game_players[player_id].game_player
+# Fetches Player from cache
+def get_player(game_id, player_id):
+    return games[game_id].players[player_id].player
 
 
 # Clears all games from cache

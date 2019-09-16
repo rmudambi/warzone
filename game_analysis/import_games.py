@@ -19,8 +19,8 @@ logging.basicConfig(
 
 # Lists of objects to save in bulk to DB
 games_to_save = []
+player_accounts_to_save = []
 players_to_save = []
-game_players_to_save = []
 turns_to_save = []
 orders_to_save = []
 territory_claims_to_save = []
@@ -29,48 +29,46 @@ territory_claims_to_save = []
 # Clear lists of objects to save
 def clear_save_queue():
     games_to_save.clear()
+    player_accounts_to_save.clear()
     players_to_save.clear()
-    game_players_to_save.clear()
     turns_to_save.clear()
     orders_to_save.clear()
     territory_claims_to_save.clear()
 
 
-# Fetches Player from DB if it exists.
-# Otherwise creates Player from Node and saves it to DB
-# Returns Player
-def import_player(player_node):
+# Fetches PlayerAccount from DB if it exists.
+# Otherwise creates PlayerAccount from Node and saves it to DB
+# Returns PlayerAccount
+def get_player_account(player_node):
     try:
-        return cache.get_player(int(player_node['id']))
-    except Player.DoesNotExist:
-        player = Player(id=int(player_node['id']), name=player_node['name'])
-        cache.add_player_to_cache(player)
-        players_to_save.append(player)
-        return player
+        return cache.get_player_account(int(player_node['id']))
+    except PlayerAccount.DoesNotExist:
+        player_account = PlayerAccount(
+            id=int(player_node['id']), name=player_node['name'])
+        cache.add_player_account_to_cache(player_account)
+        player_accounts_to_save.append(player_account)
+        return player_account
 
 
 # Add Player data to Game
 def add_players_to_game(game, game_json):
-    players = []
-    game_players = []
-
     logging.debug(f'Adding Players to Game {game.id}')
 
     player_nodes = game_json['players']
     for player_node in player_nodes:
-        # Get the player
-        player = import_player(player_node)
+        # Get the player account
+        player_account = get_player_account(player_node)
 
-        # Create GamePlayer
-        game_player = GamePlayer(
+        # Create Player
+        player = Player(
             game=game,
-            player=player,
+            player=player_account,
             end_state=cache.get_player_state_type(player_node['state'])
         )
 
-        #  Save GamePlayer to cache and queue to be saved to DB
-        cache.add_game_player_to_cache(game_player, player.get_api_id())
-        game_players_to_save.append(game_player)
+        #  Save Player to cache and queue to be saved to DB
+        cache.add_player_to_cache(player, player_account.get_api_id())
+        players_to_save.append(player)
 
 
 # Import all territories and bonuses to the DB for a given Map
@@ -320,12 +318,12 @@ def parse_picks_turn(game, map_id, picks_node, state_node):
         # Get Player from node by stripping the prefix ('player_') and looking
         #   up the id
         player_api_id = int(player_node_key[7:])
-        game_player = cache.get_game_player(game.id, player_api_id)
+        player = cache.get_player(game.id, player_api_id)
     
         for pick, territory_id in enumerate(picks_node[player_node_key]):
             territory = get_territory(map_id, territory_id)
             is_successful = territory.api_id in raw_pick_results[player_api_id]
-            parse_pick_order(territory, turn, order_number, False, game_player,
+            parse_pick_order(territory, turn, order_number, False, player,
                 is_successful, initial_armies)
             
             # If the player controls the territory after picks
@@ -338,10 +336,10 @@ def parse_picks_turn(game, map_id, picks_node, state_node):
     # All leftover territories must have been assigned randomly due to the
     #   player not making enough picks
     for player_api_id in raw_pick_results:
-        game_player = cache.get_game_player(game.id, player_api_id)
+        player = cache.get_player(game.id, player_api_id)
         for territory_id in raw_pick_results[player_api_id]:
             parse_pick_order(get_territory(map_id, territory_id), turn,
-                order_number, True, game_player, True)
+                order_number, True, player, True)
             
             order_number += 1
 
@@ -349,14 +347,14 @@ def parse_picks_turn(game, map_id, picks_node, state_node):
 
 
 # Parse pick Order
-def parse_pick_order(territory, turn, order_number, is_auto_pick, game_player,
+def parse_pick_order(territory, turn, order_number, is_auto_pick, player,
         is_successful, initial_armies):
     order = Order(
         turn = turn,
         order_number = order_number,
         order_type = cache.get_order_type(
             'GameOrderAutoPick' if is_auto_pick else 'GameOrderPick'),
-        player = game_player,
+        player = player,
         primary_territory = territory)
 
     territory_claim = TerritoryClaim(
@@ -375,7 +373,7 @@ def parse_basic_order(turn, order_number, order_node):
         turn = turn,
         order_number = order_number,
         order_type = cache.get_order_type(order_node['type']),
-        player = cache.get_game_player(turn.game.id, 
+        player = cache.get_player(turn.game.id, 
             int(order_node['playerID'])))
     orders_to_save.append(order)
 
@@ -386,7 +384,7 @@ def parse_deploy_order(turn, map_id, order_number, order_node):
         turn = turn,
         order_number = order_number,
         order_type = cache.get_order_type(order_node['type']),
-        player = cache.get_game_player(turn.game.id, 
+        player = cache.get_player(turn.game.id, 
             int(order_node['playerID'])),
         primary_territory = get_territory(map_id, int(order_node['deployOn'])),
         armies = order_node['armies'])
@@ -399,7 +397,7 @@ def parse_attack_transfer_order(turn, map_id, order_number, order_node):
         turn=turn,
         order_number=order_number,
         order_type = cache.get_order_type(order_node['type']),
-        player = cache.get_game_player(turn.game.id, 
+        player = cache.get_player(turn.game.id, 
             int(order_node['playerID'])),
         primary_territory = get_territory(map_id, int(order_node['from'])),
         secondary_territory = get_territory(map_id, int(order_node['to'])),
@@ -431,7 +429,7 @@ def parse_basic_play_card_order(turn, order_number, order_node):
         turn=turn,
         order_number = order_number,
         order_type = cache.get_order_type(order_node['type']),
-        player = cache.get_game_player(turn.game.id, 
+        player = cache.get_player(turn.game.id, 
             int(order_node['playerID'])),
         card_id = order_node['cardInstanceID'])
     orders_to_save.append(order)
@@ -443,7 +441,7 @@ def parse_blockade_order(turn, map_id, order_number, order_node):
         turn=turn,
         order_number = order_number,
         order_type = cache.get_order_type(order_node['type']),
-        player = cache.get_game_player(turn.game.id, 
+        player = cache.get_player(turn.game.id, 
             int(order_node['playerID'])),
         primary_territory = get_territory(map_id,
             int(order_node['targetTerritoryID'])),
@@ -653,8 +651,8 @@ def import_games(email, api_token, ladder_id, max_results, offset,
 
         # Save Game objects to DB
         Game.objects.bulk_create(games_to_save)
+        PlayerAccount.objects.bulk_create(player_accounts_to_save)
         Player.objects.bulk_create(players_to_save)
-        GamePlayer.objects.bulk_create(game_players_to_save)
         Turn.objects.bulk_create(turns_to_save)
         Order.objects.bulk_create(orders_to_save)
         TerritoryClaim.objects.bulk_create(territory_claims_to_save)

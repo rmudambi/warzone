@@ -119,14 +119,14 @@ def generate_order_types(apps, schema_editor):
 
 
 def generate_neutral_players(apps, schema_editor):
-    Player = apps.get_model('game_analysis', 'Player')
+    PlayerAccount = apps.get_model('game_analysis', 'PlayerAccount')
 
     neutral_players = [
-        Player(id=0, name='Neutral'),
-        Player(id=1, name='AvailableForDistribution')
+        PlayerAccount(id=0, name='Neutral'),
+        PlayerAccount(id=1, name='AvailableForDistribution')
     ]
 
-    Player.objects.bulk_create(neutral_players)
+    PlayerAccount.objects.bulk_create(neutral_players)
 
 
 def generate_player_state_types(apps, schema_editor):

@@ -36,15 +36,15 @@ class MapWrapper():
         }
 
 
-class GamePlayerWrapper():
-    def __init__(self, game_player):
-        self.game_player = game_player
+class PlayerWrapper():
+    def __init__(self, player):
+        self.player = player
 
 
 class GameWrapper():
-    def __init__(self, game, game_players=None):
+    def __init__(self, game, players=None):
         self.game = game
-        self.game_players = game_players if game_players != None else {
-            game_player.id: GamePlayerWrapper(game_player)
-                for game_player in game.gameplayer_set.all()
+        self.players = players if players != None else {
+            player.id: PlayerWrapper(player)
+                for player in game.player_set.all()
         }

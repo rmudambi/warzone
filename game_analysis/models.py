@@ -50,10 +50,10 @@ class Card(models.Model):
         return f'GameOrderPlayCard{self.name[:-5].replace(" ", "")}'
 
 
-class Player(models.Model):
+class PlayerAccount(models.Model):
     id = models.IntegerField(primary_key=True, editable=False)
     name = models.CharField(max_length=255)
-    games = models.ManyToManyField('Game', through='GamePlayer')
+    games = models.ManyToManyField('Game', through='Player')
 
     def __str__(self):
         return f'{self.id}:{self.name}'
@@ -205,7 +205,7 @@ class Game(models.Model):
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     number_of_turns = models.SmallIntegerField()
-    players = models.ManyToManyField(Player, through='GamePlayer')
+    players = models.ManyToManyField(PlayerAccount, through='Player')
     ladder = models.ForeignKey(Ladder, on_delete=models.CASCADE, null=True,
             blank=True)
 
@@ -213,13 +213,13 @@ class Game(models.Model):
         return self.name
 
 
-class GamePlayer(models.Model):
+class Player(models.Model):
     class Meta:
         unique_together = (('game', 'player'),)
     
     uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
-    player = models.ForeignKey(Player, on_delete=models.CASCADE)
+    player = models.ForeignKey(PlayerAccount, on_delete=models.CASCADE)
     end_state = models.ForeignKey(PlayerStateType, on_delete=models.CASCADE)
 
     def __str__(self):
@@ -247,7 +247,7 @@ class Order(models.Model):
     turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
     order_number = models.SmallIntegerField()
     order_type = models.ForeignKey(OrderType, on_delete=models.CASCADE)
-    player = models.ForeignKey(GamePlayer, on_delete=models.CASCADE, 
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, 
         related_name='order')
     armies = models.SmallIntegerField(blank=True, null=True)
     # in an attack/transfer/airlift this is the "from"
@@ -256,7 +256,7 @@ class Order(models.Model):
     # in an attack/transfer/airlift this is the "to"
     secondary_territory = models.ForeignKey(Territory, 
         on_delete=models.CASCADE, related_name='+', null=True, blank=True)
-    target_player = models.ForeignKey(GamePlayer, on_delete=models.CASCADE,
+    target_player = models.ForeignKey(Player, on_delete=models.CASCADE,
         related_name='+', null=True, blank=True)
     target_bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE,
         null=True, blank=True)
