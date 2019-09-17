@@ -9,12 +9,14 @@ from django.shortcuts import render
 from django.views.generic import ListView
 
 from .api import get_api_token
-from .forms import ImportLadderGamesForm
+from .calculate_game_data import calculate_game_data
+from .forms import CalculateGameDataForm, ImportLadderGamesForm
 from .import_games import import_games
 from .models import Ladder
 from .sandbox import sandbox_method
 
 GAME_ANALYSIS = 'game_analysis'
+
 
 def home(request, message=None):
     return render(
@@ -74,6 +76,35 @@ def import_ladder_games(request):
     
     return render(request, GAME_ANALYSIS + '/import_ladder_games.html',
         {'form': form})
+
+
+def calculate_ladder_game_data(request):
+    if request.method == 'POST':
+        form = CalculateGameDataForm(request.POST)
+        if form.is_valid():
+            games_to_process = form.cleaned_data['max_results']
+            offset = form.cleaned_data['offset']
+
+            start_time = datetime.now()
+
+            # Import games
+            count, all_games_processed = calculate_game_data(games_to_process,
+                offset)
+
+            end_time = datetime.now()
+
+            message = (
+                f'Calculated game data for {count} games. '
+                f'There are {"no " if all_games_processed else ""} more games '
+                f'to be processed. '
+                f'Execution duration was {str(end_time - start_time)}'
+            )
+
+            return home(request, message)
+    else:
+        form = CalculateGameDataForm()
+    
+    return render(request, GAME_ANALYSIS + '/calculate_game_data.html', {'form': form})
 
 
 def sandbox(request):

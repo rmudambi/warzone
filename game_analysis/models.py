@@ -14,7 +14,6 @@ class Ladder(models.Model):
         return WARZONE_PATH + '/LadderSeason?ID=' + str(self.id)
 
 
-
 class FogLevel(models.Model):
     id = models.CharField(primary_key=True, max_length=15, editable=False)
     name = models.CharField(max_length=15)
@@ -161,12 +160,6 @@ class Template(models.Model):
     def __str__(self):
         return f'{self.map}-{self.id}'
 
-    def get_bonus_value(self, bonus):
-        if bonus in self.overridden_bonuses:
-            return self.overridden_bonuses[bonus].new_value
-        else:
-            return bonus.base_value
-
 
 class TemplateOverriddenBonus(models.Model):
     class Meta:
@@ -208,6 +201,7 @@ class Game(models.Model):
     players = models.ManyToManyField(PlayerAccount, through='Player')
     ladder = models.ForeignKey(Ladder, on_delete=models.CASCADE, null=True,
             blank=True)
+    version = models.SmallIntegerField(default=0)
 
     def __str__(self):
         return self.name
@@ -266,7 +260,7 @@ class Order(models.Model):
         return f'{self.turn} - {self.order_number}:{self.order_type}'
 
 
-class TerritoryClaim(models.Model):
+class AttackResult(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE,
         primary_key=True)
     attack_transfer = models.CharField(max_length=15, default='AttackTransfer')
@@ -282,3 +276,30 @@ class TerritoryClaim(models.Model):
 
     def __str__(self):
         return str(self.order)
+
+
+# TODO consider additional valuable metrics
+class PlayerState(models.Model):
+    class Meta:
+        unique_together = (('turn', 'player'),)
+    
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
+    player = models.ForeignKey(Player, on_delete=models.CASCADE)
+    income = models.SmallIntegerField()
+    armies_on_board = models.SmallIntegerField()
+    armies_deployed = models.SmallIntegerField()
+    cumulative_armies_deployed = models.SmallIntegerField()
+    territories_controlled = models.SmallIntegerField()
+    # TODO for version 2
+    bonuses_threatened = models.SmallIntegerField()
+    # TODO for version 2
+    income_threatened = models.SmallIntegerField()
+
+    def get_movable_armies_on_board(self):
+        return (self.armies_on_board 
+            - int(turn.game.template.is_one_army_stand_guard) 
+            * self.territories_controlled)
+
+    def __str__(self):
+        return f'{self.turn} - {self.player}'

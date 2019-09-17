@@ -13,3 +13,8 @@ class ImportLadderGamesForm(forms.Form):
         initial=50,
         min_value=1)
     offset = forms.IntegerField(min_value=0, initial=0)
+
+
+class CalculateGameDataForm(forms.Form):
+    max_results = forms.IntegerField(label='Max Results', initial=50, min_value=1)
+    offset = forms.IntegerField(min_value=0, initial=0)

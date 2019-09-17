@@ -1,3 +1,5 @@
+from .models import PlayerState
+
 class TerritoryWrapper():
     def __init__(self, territory, use_api_ids):
         self.territory = territory
@@ -36,15 +38,35 @@ class MapWrapper():
         }
 
 
-class PlayerWrapper():
-    def __init__(self, player):
-        self.player = player
+class PlayerStateWrapper():
+    def __init__(self, player_state):
+        self.player_state = player_state
+        self.territories = {}
+        self.bonus_ids = set()
+
+
+class TurnWrapper():
+    def __init__(self, turn):
+        self.turn = turn
+        self.player_states = {
+            player_state.player_id: PlayerStateWrapper(player_state)
+            for player_state in turn.playerstate_set.all()
+        }
+        self.orders = sorted(
+            list(turn.order_set.all()),
+            key=lambda order: order.order_number
+        )
+        self.territory_owners = {}
 
 
 class GameWrapper():
     def __init__(self, game, players=None):
         self.game = game
         self.players = players if players != None else {
-            player.id: PlayerWrapper(player)
-                for player in game.player_set.all()
+            player.uuid: player
+            for player in game.player_set.all()
         }
+        self.turns = sorted(
+            [TurnWrapper(turn) for turn in game.turn_set.all()],
+            key=lambda turn_wrapper: turn_wrapper.turn.turn_number
+        )

@@ -18,5 +18,8 @@ urlpatterns = [
     path('games/ladder/import',
         views.import_ladder_games, 
         name='import_ladder_games'),
+    path('games/calculate-data',
+        views.calculate_ladder_game_data,
+        name='calculate_game_data'),
     path('sandbox', views.sandbox, name='sandbox')
 ]

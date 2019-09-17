@@ -3,8 +3,7 @@ import logging
 from .models import Card, Game, Player, Map, Order, OrderType, PlayerAccount
 from .models import PlayerStateType, Template, TemplateCardSetting, Territory
 from .models import Turn
-from .wrappers import BonusWrapper, PlayerWrapper, GameWrapper, MapWrapper
-from .wrappers import TerritoryWrapper
+from .wrappers import BonusWrapper, GameWrapper, MapWrapper, TerritoryWrapper
 
 # Dictionary from card id -> card
 cards = {}
@@ -14,9 +13,6 @@ player_state_types = {}
 
 # Dictionary from card order type id -> order type
 order_types = {}
-
-# Neutral and AvailableForDistribution "Players"
-neutral_players = {}
 
 # Dictionary from template id -> template
 templates = {}
@@ -57,10 +53,15 @@ def get_order_type(id=id):
         order_types[id] = OrderType.objects.get(pk=id)
         return order_types[id]
 
-# Set Neutral "Players"
-def set_neutral_players():
-    neutral_players['Neutral'] = PlayerAccount.objects.get(pk=0)
-    neutral_players['AvailableForDistribution'] = PlayerAccount.objects.get(pk=1)
+
+# Get the Names of the Neutral "Player Accounts"
+def get_neutral_player_names():
+    return ['Neutral', 'AvailableForDistribution']
+
+
+# Get ID of Neutral "Player Account"
+def get_neutral_id():
+    return 0
 
 
 # Add MapWrapper to cache
@@ -79,6 +80,16 @@ def add_map_to_cache(map_id, for_import):
     )
 
 
+# Get BonusWrapper
+def get_bonus_wrapper(map_id, bonus_id):
+    # If the Map is not in the cache or the Map is in the wrong format
+    if map_id not in maps or maps[map_id].uses_api_ids:
+        # Add the MapWrapper to the cache
+        add_map_to_cache(map_id, False)
+
+    return maps[map_id].bonuses[bonus_id]
+
+
 # Get Territory
 def get_territory(map_id, territory_id, for_import):
     return get_territory_wrapper(map_id, territory_id, for_import).territory
@@ -86,7 +97,7 @@ def get_territory(map_id, territory_id, for_import):
 
 # Get TerritoryWrapper
 def get_territory_wrapper(map_id, territory_id, for_import):
-    # If the Map is not in the Dictionary or the Map is in the wrong format
+    # If the Map is not in the cache or the Map is in the wrong format
     if map_id not in maps or maps[map_id].uses_api_ids != for_import:
         # Add the MapWrapper to the cache
         add_map_to_cache(map_id, for_import)
@@ -94,31 +105,35 @@ def get_territory_wrapper(map_id, territory_id, for_import):
     return maps[map_id].territories[territory_id]
 
 
-# Fetches Map from dictionary if it exists.
-# Otherwise, fetches Map from DB if it exists there and creates territories
-# dictionary. Throws Maps.DoesNotExist if Map doesn't exist in the DB
-# Adds Map and Territories to maps
-# Returns Map
+# Fetches Map from cache if it exists.
+# Otherwise, fetches Map from DB and adds it to the cache.
+# Throws Maps.DoesNotExist if Map doesn't exist in the DB
 def get_map(map_id, for_import):
+    return get_map_wrapper(map_id, for_import).map
+
+
+# Fetches MapWrapper from cache if it exists.
+# Otherwise, fetches Map from DB and adds it to the cache.
+# Throws Maps.DoesNotExist if Map doesn't exist in the DB
+def get_map_wrapper(map_id, for_import):
     logging.debug(f'Getting Map {map_id}')
 
     # If map is not in the dictionary
     if map_id not in maps or maps[map_id].uses_api_ids != for_import:
         add_map_to_cache(map_id, for_import)
 
-    # Return map
-    return maps[map_id].map
+    # Return map wrapper
+    return maps[map_id]
 
 
-# Adds Template and Cards Settings to templates
+# Adds Template to cache
 def add_template_to_cache(template):
     templates[template.id] = template
 
 
-# Fetches Template from imput template dictionary if it exists
-# Otherwise, Fetches Template from DB if it exists there and creates card
-# settings dictionary. Throws Template.DoesNotExist if Template doesn't exist
-# in the DB. Adds Template and Cards Settings to templates. Returns Template
+# Fetches Template from cache if it exists
+# Otherwise, Fetches Template from DB and adds it to the cache.
+# Throws Template.DoesNotExist if Template doesn't exist in the DB.
 def get_template(template_id):
     # if template is not in the dictionary
     if template_id  not in templates:
@@ -130,7 +145,7 @@ def get_template(template_id):
     return templates[template_id]
 
 
-# Add the player account to the player accounts cache
+# Add the player account to the cache
 def add_player_account_to_cache(player_account):
     player_accounts[player_account.id] = player_account
 
@@ -147,14 +162,14 @@ def get_player_account(player_account_id):
     return player_accounts[player_account_id]
 
 
-# Add the Player to the players cache
+# Add the Player to the cache
 def add_player_to_cache(player, id):
-    games[player.game_id].players[id] = PlayerWrapper(player)
+    games[player.game_id].players[id] = player
 
 
 # Fetches Player from cache
 def get_player(game_id, player_id):
-    return games[game_id].players[player_id].player
+    return games[game_id].players[player_id]
 
 
 # Clears all games from cache

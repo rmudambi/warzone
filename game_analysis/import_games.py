@@ -12,8 +12,8 @@ from .models import *
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
-    # format='%(asctime)s - %(message)s'
-    format='%(message)s'
+    format='%(asctime)s - %(message)s'
+    # format='%(message)s'
 )
 
 
@@ -23,7 +23,7 @@ player_accounts_to_save = []
 players_to_save = []
 turns_to_save = []
 orders_to_save = []
-territory_claims_to_save = []
+attack_results_to_save = []
 
 
 # Clear lists of objects to save
@@ -33,7 +33,7 @@ def clear_save_queue():
     players_to_save.clear()
     turns_to_save.clear()
     orders_to_save.clear()
-    territory_claims_to_save.clear()
+    attack_results_to_save.clear()
 
 
 # Fetches PlayerAccount from DB if it exists.
@@ -303,8 +303,8 @@ def parse_picks_turn(game, map_id, picks_node, state_node):
         territory_owner = territory_node['ownedBy']
         territory = int(territory_node['terrID'])
 
-        # If owner is not neutral
-        if territory_owner not in cache.neutral_players.keys():
+        # If owner is not neutral or available for distribution
+        if territory_owner not in cache.get_neutral_player_names():
             territory_owner = int(territory_owner)
             if territory_owner not in raw_pick_results.keys():
                 raw_pick_results[territory_owner] = set([territory])
@@ -357,14 +357,15 @@ def parse_pick_order(territory, turn, order_number, is_auto_pick, player,
         player = player,
         primary_territory = territory)
 
-    territory_claim = TerritoryClaim(
+    attack_result = AttackResult(
         order = order,
         attack_transfer = 'AutoPick' if is_auto_pick else 'Pick',
         attack_size = initial_armies,
+        attacking_armies_killed = 0,
         is_successful = is_successful)
 
     orders_to_save.append(order)
-    territory_claims_to_save.append(territory_claim)
+    attack_results_to_save.append(attack_result)
 
 
 # Parse basic Order
@@ -406,7 +407,7 @@ def parse_attack_transfer_order(turn, map_id, order_number, order_node):
     
     # Parse AttackResult node
     result_node = order_node['result']
-    territory_claim = TerritoryClaim(
+    attack_result = AttackResult(
         order = order,
         attack_transfer = order_node['attackTransfer'],
         is_attack_teammates = order_node['attackTeammates'],
@@ -420,7 +421,7 @@ def parse_attack_transfer_order(turn, map_id, order_number, order_node):
             else float(result_node['offenseLuck']),
         defense_luck = 0.0 if not result_node['defenseLuck'] 
             else float(result_node['defenseLuck']))
-    territory_claims_to_save.append(territory_claim)
+    attack_results_to_save.append(attack_result)
         
 
 # Parse basic play card Order
@@ -542,7 +543,7 @@ def import_turns(game, map_id, game_json):
 # if they do not yet exist. Does nothing if the Game already exists.
 # Returns True if the Game is imported and False otherwise
 def import_game(email, api_token, game_id, imported_games_count, ladder=None):
-    logging.debug(f'Importing game {game_id}')
+    logging.info(f'Importing game {game_id}: Offset {imported_games_count}')
     cache.clear_games_from_cache()
 
     try:
@@ -608,10 +609,10 @@ def import_games(email, api_token, ladder_id, max_results, offset,
         games_per_page):
     # Initialize neutral players
     logging.info('Initializing neutral players')
-    cache.set_neutral_players()
     
     results_left_to_get = max_results
     imported_games_count = 0
+    successful_imported_games_count = 0
 
     logging.info(
         f'Retrieving {max_results} ladder games from ladder {ladder_id} '
@@ -647,7 +648,8 @@ def import_games(email, api_token, ladder_id, max_results, offset,
         for game_id in game_ids:
             if import_game(email, api_token, game_id,
                     imported_games_count, ladder):
-                imported_games_count += 1
+                successful_imported_games_count += 1
+            imported_games_count += 1
 
         # Save Game objects to DB
         Game.objects.bulk_create(games_to_save)
@@ -655,7 +657,7 @@ def import_games(email, api_token, ladder_id, max_results, offset,
         Player.objects.bulk_create(players_to_save)
         Turn.objects.bulk_create(turns_to_save)
         Order.objects.bulk_create(orders_to_save)
-        TerritoryClaim.objects.bulk_create(territory_claims_to_save)
+        AttackResult.objects.bulk_create(attack_results_to_save)
 
         results_left_to_get -= len(game_ids)
         offset +=games_per_page
