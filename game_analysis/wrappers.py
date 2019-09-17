@@ -63,7 +63,7 @@ class GameWrapper():
     def __init__(self, game, players=None):
         self.game = game
         self.players = players if players != None else {
-            player.uuid: player
+            player.pk: player
             for player in game.player_set.all()
         }
         self.turns = sorted(

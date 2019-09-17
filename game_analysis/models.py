@@ -77,7 +77,7 @@ class Map(models.Model):
 
 
 class Territory(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     map = models.ForeignKey(Map, on_delete=models.CASCADE)
     # value in json returned by api
     api_id = models.SmallIntegerField(editable=False)
@@ -90,7 +90,7 @@ class Territory(models.Model):
 
 
 class Bonus(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     map = models.ForeignKey(Map, on_delete=models.CASCADE)
     # value in json returned by api
     api_id = models.SmallIntegerField(editable=False)
@@ -106,7 +106,7 @@ class BonusTerritory(models.Model):
     class Meta:
         unique_together = (('bonus', 'territory'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE)
     territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
 
@@ -165,7 +165,7 @@ class TemplateOverriddenBonus(models.Model):
     class Meta:
         unique_together = (('template', 'bonus'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     bonus = models.ForeignKey(Bonus, on_delete=models.CASCADE)
     new_value = models.SmallIntegerField()
@@ -178,7 +178,7 @@ class TemplateCardSetting(models.Model):
     class Meta:
         unique_together = (('template', 'card'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     template = models.ForeignKey(Template, on_delete=models.CASCADE)
     card = models.ForeignKey(Card, on_delete=models.CASCADE)
     number_of_pieces = models.SmallIntegerField()
@@ -211,7 +211,7 @@ class Player(models.Model):
     class Meta:
         unique_together = (('game', 'player'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
     player = models.ForeignKey(PlayerAccount, on_delete=models.CASCADE)
     end_state = models.ForeignKey(PlayerStateType, on_delete=models.CASCADE)
@@ -224,7 +224,7 @@ class Turn(models.Model):
     class Meta:
         unique_together = (('game', 'turn_number'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
     turn_number = models.SmallIntegerField()
     commit_date_time = models.DateTimeField(null=True, blank=True)
@@ -237,7 +237,7 @@ class Order(models.Model):
     class Meta:
         unique_together = (('turn', 'order_number'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
     order_number = models.SmallIntegerField()
     order_type = models.ForeignKey(OrderType, on_delete=models.CASCADE)
@@ -283,7 +283,7 @@ class PlayerState(models.Model):
     class Meta:
         unique_together = (('turn', 'player'),)
     
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     turn = models.ForeignKey(Turn, on_delete=models.CASCADE)
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
     income = models.SmallIntegerField()
