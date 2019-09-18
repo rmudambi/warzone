@@ -10,8 +10,8 @@ from django.views.generic import ListView
 
 from .api import get_api_token
 from .calculate_game_data import calculate_game_data
-from .forms import CalculateGameDataForm, ImportLadderGamesForm
-from .import_games import import_games
+from .forms import CalculateGameDataForm, ImportGameForm, ImportLadderGamesForm
+from .import_games import import_game, import_ladder_games
 from .models import Ladder
 from .sandbox import sandbox_method
 
@@ -37,7 +37,45 @@ class LaddersListView(ListView):
         return super(LaddersListView, self).get_context_data(**kwargs)
 
 
-def import_ladder_games(request):
+def import_game_view(request):
+    if request.method == 'POST':
+        try:
+            form = ImportGameForm(request.POST)
+            if form.is_valid():
+                email = form.cleaned_data['email']
+                password = form.cleaned_data['password']
+                game_id = form.cleaned_data['game_id']
+
+                # Get api token
+                try:
+                    api_token = get_api_token(email, password)
+                except URLError:
+                    return home(request, 'Error getting API Token')
+
+                start_time = datetime.now()
+
+                # Import game
+                game = import_game(email, api_token, game_id)
+
+                end_time = datetime.now()
+
+                message = (
+                    f'Imported {game}. '
+                    f'Execution duration was {end_time - start_time}.'
+                )
+
+                return home(request, message)
+        except URLError as e:
+            logging.exception(e.reason)
+            return home(request, e.reason)
+    else:
+        form = ImportGameForm()
+    
+    return render(request, GAME_ANALYSIS + '/basic_post_form.html',
+        {'form_title': 'Import Game', 'form': form})
+
+
+def import_ladder_games_view(request):
     if request.method == 'POST':
         try:
             form = ImportLadderGamesForm(request.POST)
@@ -57,28 +95,29 @@ def import_ladder_games(request):
                 start_time = datetime.now()
 
                 # Import games
-                count = import_games(email, api_token, ladder_id, max_results,
+                count = import_ladder_games(email, api_token, ladder_id, max_results,
                     offset, 50)
 
                 end_time = datetime.now()
 
                 message = (
-                    f'Imported {str(count)} games out of {max_results}. '
-                    f'Execution duration was {str(end_time - start_time)}'
+                    f'Imported {count} games out of {max_results}. '
+                    f'Execution duration was {end_time - start_time}.'
                 )
 
-                return home(request, message)
+                return home(
+                    request, message)
         except URLError as e:
             logging.exception(e.reason)
             return home(request, e.reason)
     else:
         form = ImportLadderGamesForm()
     
-    return render(request, GAME_ANALYSIS + '/import_ladder_games.html',
-        {'form': form})
+    return render(request, GAME_ANALYSIS + '/basic_post_form.html',
+        {'form_title': 'Import Ladder Games', 'form': form})
 
 
-def calculate_ladder_game_data(request):
+def calculate_game_data_view(request):
     if request.method == 'POST':
         form = CalculateGameDataForm(request.POST)
         if form.is_valid():
@@ -104,7 +143,8 @@ def calculate_ladder_game_data(request):
     else:
         form = CalculateGameDataForm()
     
-    return render(request, GAME_ANALYSIS + '/calculate_game_data.html', {'form': form})
+    return render(request, GAME_ANALYSIS + '/basic_post_form.html',
+        {'form_title': 'Calculate Game Data', 'form': form})
 
 
 def sandbox(request):

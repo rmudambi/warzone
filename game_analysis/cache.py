@@ -1,9 +1,12 @@
 import logging
 
-from .models import Card, Game, Player, Map, Order, OrderType, PlayerAccount
-from .models import PlayerStateType, Template, TemplateCardSetting, Territory
-from .models import Turn
+from .models import Card, Game, Ladder, Player, Map, Order, OrderType
+from .models import PlayerAccount, PlayerStateType, Template
+from .models import TemplateCardSetting, Territory, Turn
 from .wrappers import BonusWrapper, GameWrapper, MapWrapper, TerritoryWrapper
+
+# Dictionary from ladder id -> ladder
+ladders = {}
 
 # Dictionary from card id -> card
 cards = {}
@@ -25,6 +28,15 @@ player_accounts = {}
 
 # Dictionary from game id -> GameWrapper
 games = {}
+
+
+# Get Ladder
+def get_ladder(id=id):
+    try:
+        return ladders[id]
+    except KeyError:
+        ladders[id] = Ladder.objects.get(pk=id)
+        return ladders[id]
 
 
 # Get Card

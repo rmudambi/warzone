@@ -13,12 +13,12 @@ from .models import *
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(message)s'
-    # format='%(message)s'
 )
 
 
 # Lists of objects to save in bulk to DB
 games_to_save = []
+games_to_update = []
 player_accounts_to_save = []
 players_to_save = []
 turns_to_save = []
@@ -29,6 +29,7 @@ attack_results_to_save = []
 # Clear lists of objects to save
 def clear_save_queue():
     games_to_save.clear()
+    games_to_update.clear()
     player_accounts_to_save.clear()
     players_to_save.clear()
     turns_to_save.clear()
@@ -36,9 +37,19 @@ def clear_save_queue():
     attack_results_to_save.clear()
 
 
-# Fetches PlayerAccount from DB if it exists.
-# Otherwise creates PlayerAccount from Node and saves it to DB
-# Returns PlayerAccount
+# Save game and associated objects
+def save_games_in_queue():
+    Game.objects.bulk_create(games_to_save)
+    Game.objects.bulk_update(games_to_update, ['ladder'])
+    PlayerAccount.objects.bulk_create(player_accounts_to_save)
+    Player.objects.bulk_create(players_to_save)
+    Turn.objects.bulk_create(turns_to_save)
+    Order.objects.bulk_create(orders_to_save)
+    AttackResult.objects.bulk_create(attack_results_to_save)
+
+
+# Fetches PlayerAccount from DB if it exists. Otherwise creates PlayerAccount
+# from Node and queue it for insertion to the DB
 def get_player_account(player_node):
     try:
         return cache.get_player_account(int(player_node['id']))
@@ -50,8 +61,8 @@ def get_player_account(player_node):
         return player_account
 
 
-# Add Player data to Game
-def add_players_to_game(game, game_json):
+# Parse Player data and queue it for insertion to the DB
+def parse_players(game, game_json):
     logging.debug(f'Adding Players to Game {game.id}')
 
     player_nodes = game_json['players']
@@ -152,9 +163,9 @@ def import_overridden_bonuses(template, overridden_bonus_nodes):
     pass
 
 
-# Import Template Card Settings
-def import_card_settings(cards_settings, template, card_id, settings_node,
-        field_mappings):
+# Parse Template Card Settings and queue it for insertion to the DB
+def parse_card_settings(cards_settings_to_save, template, card_id,
+        settings_node, field_mappings):
     card = cache.get_card(card_id)
     card_node = settings_node[card.name.replace(' ', '')]
 
@@ -174,7 +185,7 @@ def import_card_settings(cards_settings, template, card_id, settings_node,
         for db_field_name in field_mappings:
             fields[db_field_name] = card_node[field_mappings[db_field_name]]
         
-        cards_settings[card_id] = TemplateCardSetting(**fields)
+        cards_settings_to_save.append(TemplateCardSetting(**fields))
 
 
 # Import Card Settings to the DB for a given Template
@@ -213,14 +224,13 @@ def import_cards_settings(template, settings_node):
         {}
     )
 
-    cards_settings = {}
+    cards_settings_to_save = []
     for index, card_field_mappings in enumerate(field_mappings):
-        import_card_settings(cards_settings, template, index + 1,
+        parse_card_settings(cards_settings_to_save, template, index + 1,
             settings_node, card_field_mappings)
     
     # Save Template Card Settings to DB
-    TemplateCardSetting.objects.bulk_create(list(cards_settings.values()))
-    return cards_settings
+    TemplateCardSetting.objects.bulk_create(cards_settings_to_save)
 
 
 # Fetches Template from imput template dictionary if it exists
@@ -292,7 +302,7 @@ def get_template(game_json):
         return template
 
 
-# Parse the picks turn
+# Parse the picks turn and queue it for insertion to the DB
 def parse_picks_turn(game, map_id, picks_node, state_node):
     turn = Turn(game=game, turn_number=-1)
     
@@ -339,14 +349,14 @@ def parse_picks_turn(game, map_id, picks_node, state_node):
         player = cache.get_player(game.id, player_api_id)
         for territory_id in raw_pick_results[player_api_id]:
             parse_pick_order(get_territory(map_id, territory_id), turn,
-                order_number, True, player, True)
+                order_number, True, player, True, initial_armies)
             
             order_number += 1
 
     turns_to_save.append(turn)
 
 
-# Parse pick Order
+# Parse pick Order and queue it for insertion to the DB
 def parse_pick_order(territory, turn, order_number, is_auto_pick, player,
         is_successful, initial_armies):
     order = Order(
@@ -368,7 +378,7 @@ def parse_pick_order(territory, turn, order_number, is_auto_pick, player,
     attack_results_to_save.append(attack_result)
 
 
-# Parse basic Order
+# Parse basic Order and queue it for insertion to the DB
 def parse_basic_order(turn, order_number, order_node):
     order = Order(
         turn = turn,
@@ -379,7 +389,7 @@ def parse_basic_order(turn, order_number, order_node):
     orders_to_save.append(order)
 
 
-# Parse deploy Order
+# Parse deploy Order and queue it for insertion to the DB
 def parse_deploy_order(turn, map_id, order_number, order_node):
     order = Order(
         turn = turn,
@@ -392,7 +402,7 @@ def parse_deploy_order(turn, map_id, order_number, order_node):
     orders_to_save.append(order)
 
 
-# Parse attack/transfer Order
+# Parse attack/transfer Order and queue it for insertion to the DB
 def parse_attack_transfer_order(turn, map_id, order_number, order_node):
     order = Order(
         turn=turn,
@@ -424,7 +434,7 @@ def parse_attack_transfer_order(turn, map_id, order_number, order_node):
     attack_results_to_save.append(attack_result)
         
 
-# Parse basic play card Order
+# Parse basic play card Order and queue it for insertion to the DB
 def parse_basic_play_card_order(turn, order_number, order_node):
     order = Order(
         turn=turn,
@@ -436,7 +446,7 @@ def parse_basic_play_card_order(turn, order_number, order_node):
     orders_to_save.append(order)
 
 
-# Parse blockade Order
+# Parse blockade Order and queue it for insertion to the DB
 def parse_blockade_order(turn, map_id, order_number, order_node):
     order = Order(
         turn=turn,
@@ -457,7 +467,7 @@ def import_state_transition_order(order, order_node):
     pass
 
 
-# Parses the Orders for a Turn
+# Parses the Orders for a Turn and queue them for insertion to the DB
 def parse_orders(turn, map_id, order_nodes):
     for order_number, order_node in enumerate(order_nodes):
         order_node = order_nodes[order_number]
@@ -501,8 +511,8 @@ def parse_orders(turn, map_id, order_nodes):
             pass
 
 
-# Import Turns into the DB
-def import_turns(game, map_id, game_json):
+# Parse Turns and queue for insertion into the DB
+def parse_turns(game, map_id, game_json):
     logging.debug(f'Importing Turns for Game {game.id}')
     # Create list of turn nodes
     turn_nodes = []
@@ -524,9 +534,9 @@ def import_turns(game, map_id, game_json):
         commit_date_time = datetime.strptime(turn_node['date'],
             '%m/%d/%Y %H:%M:%S').replace(tzinfo=UTC)
         turn = Turn(
-            game=game,
-            turn_number=turn_number,
-            commit_date_time=commit_date_time)
+            game = game,
+            turn_number = turn_number,
+            commit_date_time = commit_date_time)
     
         parse_orders(turn, map_id, turn_node['orders'])
 
@@ -539,18 +549,91 @@ def import_turns(game, map_id, game_json):
     )
 
     
+# Parse Game and queue it for insertion to the DB
+def parse_game(game_data, ladder=None):
+    game_json = json_loads(game_data)
+    game_id = game_json['id']
+
+    try:
+        # Will throw KeyError if map node doesn't exist
+        # TODO this should be fixed by Fizzer soon
+        map = game_json['map']
+    except KeyError:
+        # Map node doesn't exist, so game ended on turn -1
+        # Ignore game, since it adds no value
+        logging.debug(
+            f'Game {game_id} has no map node. Game ended on turn -1'
+        )
+        return None
+
+    template = get_template(game_json)
+
+    if int(map['id']) != template.map_id:
+        # Map doesn't match the map in the template so the template has
+        #   changed
+        # TODO add complete template compatibility checks
+        return None
+    else:
+        game = Game(
+            id = game_json['id'],
+            name = game_json['name'],
+            template = template,
+            ladder = ladder,
+            number_of_turns = game_json['numberOfTurns']
+        )
+
+        cache.add_game_to_cache(game, {})
+        parse_players(game, game_json)
+        parse_turns(game, template.map_id, game_json)
+        games_to_save.append(game)
+        
+        logging.debug(f'Finished parsing Game {game}')
+        return game
+
+
+# Imports a Ladder Game with the given ID into the DB along with associated
+# data if they do not yet exist. Does nothing if the Game already exists.
+# If the Games already exists but doesn't have the correct Ladder, updates it.
+# Returns the Game if it is imported and None otherwise
+def parse_ladder_game(email, api_token, game_id, offset, ladder):
+    logging.info(f'Parsing game {game_id}: Offset {offset}')
+    cache.clear_games_from_cache()
+
+    try:
+        # Check if Game already exists
+        additional_info = ''
+        game = Game.objects.get(pk=game_id)
+        
+        # If Game exists check that it has the correct Ladder
+        if ladder and game.ladder_id != ladder.id:
+            game.ladder = ladder
+            games_to_update.append(game)
+            additional_info = f'Ladder set to {ladder}.'
+
+        logging.debug(f'Game {game_id} already exists. {additional_info}')
+        return None
+    except Game.DoesNotExist:
+        logging.debug(f'Retrieving Game {game_id} data from Warzone')
+        
+        # Retrieve Game data
+        game_data = api.get_game_data_from_id(email, api_token, game_id)
+
+        # Parse Game data
+        game = parse_game(game_data, ladder)
+        return game
+
+
 # Imports a Game into with the given ID into the DB along with associated data
 # if they do not yet exist. Does nothing if the Game already exists.
-# Returns True if the Game is imported and False otherwise
-def import_game(email, api_token, game_id, imported_games_count, ladder=None):
-    logging.info(f'Importing game {game_id}: Offset {imported_games_count}')
-    cache.clear_games_from_cache()
+# Returns the Game if it is imported and None otherwise
+def import_game(email, api_token, game_id):
+    logging.info(f'Importing game {game_id}')
 
     try:
         # Check if Game already exists
         Game.objects.get(pk=game_id)
         logging.debug(f'Game {game_id} already exists.')
-        return False
+        return None
     except Game.DoesNotExist:
         logging.debug(f'Retrieving Game {game_id} data from Warzone')
         
@@ -559,57 +642,25 @@ def import_game(email, api_token, game_id, imported_games_count, ladder=None):
             game_data = api.get_game_data_from_id(email, api_token, game_id)
         except URLError as e:
             raise URLError(
-                f'Connection failed getting game data for game {game_id} '
-                f'after importing {imported_games_count} games.'
+                f'Connection failed getting game data for game {game_id}.'
             ) from e
 
+        # Clear save queue
+        clear_save_queue()
+
         # Parse Game data
-        game_json = json_loads(game_data)
+        game = parse_game(game_data)
 
-        try:
-            # Will throw KeyError if map node doesn't exist
-            # TODO this should be fixed by Fizzer soon
-            map = game_json['map']
-        except KeyError:
-            # Map node doesn't exist, so game ended on turn -1
-            # Ignore game, since it adds no value
-            logging.debug(
-                f'Game {game_id} has no map node. Game ended on turn -1'
-            )
-            return False
+        # Save Game to DB
+        save_games_in_queue()
 
-        template = get_template(game_json)
-
-        if int(map['id']) != template.map_id:
-            # Map doesn't match the map in the template so the template has
-            #   changed
-            # TODO add complete template compatibility checks
-            return False
-        else:
-            game = Game(
-                id=game_json['id'],
-                name=game_json['name'],
-                template=template,
-                ladder=ladder,
-                number_of_turns=game_json['numberOfTurns']
-            )
-
-            cache.add_game_to_cache(game, {})
-            add_players_to_game(game, game_json)
-            import_turns(game, template.map_id, game_json)
-            games_to_save.append(game)
-            
-            logging.debug(f'Finished importing Game {game_id}')
-            return True
+        return game
 
 
 # Imports max_results Games (and associated data) from the specified ladder
 # starting from offset. For each Game, does nothing if the Game already exists
-def import_games(email, api_token, ladder_id, max_results, offset,
+def import_ladder_games(email, api_token, ladder_id, max_results, offset,
         games_per_page):
-    # Initialize neutral players
-    logging.info('Initializing neutral players')
-    
     results_left_to_get = max_results
     imported_games_count = 0
     successful_imported_games_count = 0
@@ -619,13 +670,13 @@ def import_games(email, api_token, ladder_id, max_results, offset,
         f'starting at offset {offset}'
     )
 
-    ladder = Ladder.objects.get(pk=ladder_id)
+    ladder = cache.get_ladder(ladder_id)
 
     while 0 < results_left_to_get:
         # Retrieve game ids at offset
         logging.info(
             f'Retrieving {min(games_per_page, max_results)} game ids from '
-            f'ladder {ladder_id}: Offset {offset}'
+            f'ladder {ladder}: Offset {offset}.'
         )
 
         try:
@@ -645,21 +696,22 @@ def import_games(email, api_token, ladder_id, max_results, offset,
         clear_save_queue()
         
         # Import each game if it does not yet exist
-        for game_id in game_ids:
-            if import_game(email, api_token, game_id,
-                    imported_games_count, ladder):
-                successful_imported_games_count += 1
-            imported_games_count += 1
+        try:
+            for game_id in game_ids:
+                if parse_ladder_game(email, api_token, game_id,
+                        imported_games_count,ladder):
+                    successful_imported_games_count += 1
+                imported_games_count += 1
+        except URLError as e:
+            raise URLError(
+                f'Connection failed getting game data for game {game_id} '
+                f'after importing {imported_games_count} games.'
+            ) from e
 
-        # Save Game objects to DB
-        Game.objects.bulk_create(games_to_save)
-        PlayerAccount.objects.bulk_create(player_accounts_to_save)
-        Player.objects.bulk_create(players_to_save)
-        Turn.objects.bulk_create(turns_to_save)
-        Order.objects.bulk_create(orders_to_save)
-        AttackResult.objects.bulk_create(attack_results_to_save)
+        # Save Games to DB
+        save_games_in_queue()
 
         results_left_to_get -= len(game_ids)
         offset +=games_per_page
     
-    return imported_games_count
+    return successful_imported_games_count

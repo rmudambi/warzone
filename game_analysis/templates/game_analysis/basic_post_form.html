@@ -1,9 +1,9 @@
 {% extends "game_analysis/layout.html" %}
 {% block title %}
-Import Ladder Games
+{{form_title}}
 {% endblock %}
 {% block content %}
-<form action="import" method="POST">
+<form method="POST">
     {% csrf_token %}
     {{ form.as_p }}
     <input type="submit" value="Submit">
