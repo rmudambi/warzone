@@ -30,7 +30,7 @@ class PlayerStateType(models.Model):
 
 
 class OrderType(models.Model):
-    id = models.CharField(max_length=63, primary_key=True,)
+    id = models.CharField(max_length=63, primary_key=True)
     name = models.CharField(max_length=63)
 
     def __str__(self):
@@ -218,6 +218,19 @@ class Player(models.Model):
 
     def __str__(self):
         return f'{self.game}:{self.player}'
+
+
+class TerritoryBaseline(models.Model):
+    class Meta:
+        unique_together = (('game', 'territory'),)
+    
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE)
+    territory = models.ForeignKey(Territory, on_delete=models.CASCADE)
+    state = models.CharField(max_length=15)
+
+    def __str__(self):
+        return f'{self.game_id}:{self.territory} - {state}'
 
 
 class Turn(models.Model):

@@ -20,6 +20,7 @@ logging.basicConfig(
 games_to_save = []
 games_to_update = []
 player_accounts_to_save = []
+territory_baselines_to_save = []
 players_to_save = []
 turns_to_save = []
 orders_to_save = []
@@ -31,6 +32,7 @@ def clear_save_queue():
     games_to_save.clear()
     games_to_update.clear()
     player_accounts_to_save.clear()
+    territory_baselines_to_save.clear()
     players_to_save.clear()
     turns_to_save.clear()
     orders_to_save.clear()
@@ -42,6 +44,7 @@ def save_games_in_queue():
     Game.objects.bulk_create(games_to_save)
     Game.objects.bulk_update(games_to_update, ['ladder'])
     PlayerAccount.objects.bulk_create(player_accounts_to_save)
+    TerritoryBaseline.objects.bulk_create(territory_baselines_to_save)
     Player.objects.bulk_create(players_to_save)
     Turn.objects.bulk_create(turns_to_save)
     Order.objects.bulk_create(orders_to_save)
@@ -302,24 +305,63 @@ def get_template(game_json):
         return template
 
 
+# Parse baseline
+def parse_baseline(game, map_id, initial_state_node):
+    template = cache.get_template(game.template_id)
+    wasteland_size = template.wasteland_size
+    out_distribution_size = template.out_distribution_neutrals
+    in_distribution_size = template.in_distribution_neutrals
+
+    for territory_node in initial_state_node:
+        territory_owner = territory_node['ownedBy']
+        territory = get_territory(map_id, int(territory_node['terrID']))
+        armies = int(territory_node['armies'])
+
+        # If territory is not owned by Neutral it is in distribution
+        if territory_owner != cache.get_neutral_name():
+            baseline_state = cache.get_in_distribution_baseline_state()
+
+        # Check if the territory is generically out of distribution
+        elif armies == out_distribution_size:
+            # Don't store out of distribution territories
+            continue
+        
+        # Check if the territory is wastelanded
+        elif armies == wasteland_size:
+            baseline_state = cache.get_wasteland_baseline_state()
+
+        # Otherwise territory is in distribution in an auto distribution game
+        else:
+            baseline_state = cache.get_in_distribution_baseline_state()
+
+        # Create Territory Baseline and queue it for insertion to the DB
+        territory_baselines_to_save.append(
+            TerritoryBaseline(
+                game = game,
+                territory = territory,
+                state = baseline_state
+            )
+        )
+
+
 # Parse the picks turn and queue it for insertion to the DB
-def parse_picks_turn(game, map_id, picks_node, state_node):
+def parse_picks_turn(game, map_id, picks_node, after_picks_state_node):
     turn = Turn(game=game, turn_number=-1)
     
     # Get pick results
     # Needed since the api doesn't reveal who received which picks otherwise
     raw_pick_results = {}
-    for territory_node in state_node:
+    for territory_node in after_picks_state_node:
         territory_owner = territory_node['ownedBy']
-        territory = int(territory_node['terrID'])
+        territory_id = int(territory_node['terrID'])
 
-        # If owner is not neutral or available for distribution
-        if territory_owner not in cache.get_neutral_player_names():
+        # If owner is not neutral
+        if territory_owner != cache.get_neutral_name():
             territory_owner = int(territory_owner)
             if territory_owner not in raw_pick_results.keys():
-                raw_pick_results[territory_owner] = set([territory])
+                raw_pick_results[territory_owner] = set([territory_id])
             else:
-                raw_pick_results[territory_owner].add(territory)
+                raw_pick_results[territory_owner].add(territory_id)
 
     order_number = 0
     initial_armies = cache.get_template(game.template_id).initial_armies
@@ -523,9 +565,14 @@ def parse_turns(game, map_id, game_json):
     # Get picks node for manual distribution games - otherwise use empty list
     try:
         picks_node = game_json['picks']
+        baseline_standing = game_json['distributionStanding']
     except KeyError:
         picks_node = []
+        baseline_standing = game_json['standing0']
     
+    # Parse Game baseline
+    parse_baseline(game, map_id, baseline_standing)
+
     # Import picks
     parse_picks_turn(game, map_id, picks_node, game_json['standing0'])
 

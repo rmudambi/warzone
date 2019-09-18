@@ -14,6 +14,7 @@ SELECT_GAMES_QUERY = (
         .exclude(version=CURRENT_VERSION)
         .prefetch_related(
             'player_set',
+            'territorybaseline_set',
             Prefetch(
                 'turn_set__order_set',
                 queryset=Order.objects.select_related('attackresult')),

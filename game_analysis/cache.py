@@ -66,14 +66,24 @@ def get_order_type(id=id):
         return order_types[id]
 
 
-# Get the Names of the Neutral "Player Accounts"
-def get_neutral_player_names():
-    return ['Neutral', 'AvailableForDistribution']
+# Get the Name of the Neutral "Player Account"
+def get_neutral_name():
+    return 'Neutral'
 
 
 # Get ID of Neutral "Player Account"
 def get_neutral_id():
     return 0
+
+
+# Get Wasteland baseline state for territory
+def get_wasteland_baseline_state():
+    return 'Wasteland'
+
+
+# Get 'In Distribution' baseline state for territory
+def get_in_distribution_baseline_state():
+    return 'In Distribution'
 
 
 # Add MapWrapper to cache

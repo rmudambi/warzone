@@ -132,7 +132,7 @@ def generate_neutral_players(apps, schema_editor):
 def generate_player_state_types(apps, schema_editor):
     PlayerStateType = apps.get_model('game_analysis', 'PlayerStateType')
 
-    player_states = [
+    player_state_types = [
         PlayerStateType(id='Won'),
         PlayerStateType(id='SurrenderAccepted'),
         PlayerStateType(id='Booted'),
@@ -142,7 +142,7 @@ def generate_player_state_types(apps, schema_editor):
         PlayerStateType(id='Declined')
     ]
     
-    PlayerStateType.objects.bulk_create(player_states)
+    PlayerStateType.objects.bulk_create(player_state_types)
     
 
 class Migration(migrations.Migration):

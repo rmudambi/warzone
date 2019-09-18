@@ -70,3 +70,7 @@ class GameWrapper():
             [TurnWrapper(turn) for turn in game.turn_set.all()],
             key=lambda turn_wrapper: turn_wrapper.turn.turn_number
         )
+        self.territories_baseline = {
+            territory_baseline.territory_id: territory_baseline
+            for territory_baseline in game.territorybaseline_set.all()
+        }
