@@ -24,4 +24,4 @@ class ImportLadderGamesForm(AuthForm):
 
 class CalculateGameDataForm(forms.Form):
     max_results = forms.IntegerField(label='Max Results', initial=50, min_value=1)
-    offset = forms.IntegerField(min_value=0, initial=0)
+    batch_size = forms.IntegerField(min_value=0, initial=100)

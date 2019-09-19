@@ -22,6 +22,8 @@ SELECT_GAMES_QUERY = (
         )
 )
 
+
+# Create a Player State Wrapper for the next turn
 def set_player_state_wrapper_turn(wrapper, turn):
     wrapper.player_state = PlayerState(
         turn = turn,
@@ -215,12 +217,7 @@ def process_blockade(map_wrapper, territory_owners, players_state, order):
 
 
 # Return Player States data for a Game
-def parse_player_states(game_wrapper, processed_games_count):
-    logging.info((
-        f'Processing game {game_wrapper.game.id}: '
-        f'Offset {processed_games_count}'
-    ))
-
+def parse_player_states(game_wrapper):
     template = cache.get_template(game_wrapper.game.template_id)
     map_wrapper = cache.get_map_wrapper(template.map_id, False)
 
@@ -285,33 +282,41 @@ def parse_player_states(game_wrapper, processed_games_count):
 
 
 # Create Player State data for a given number of games from an given offset
-def calculate_game_data(games_to_process, offset, batch_size=100):
+def calculate_game_data(max_games_to_process, batch_size=5):
     logging.info(
-        f'Processing {games_to_process} games, starting at offset {offset}'
+        f'Processing {max_games_to_process} games'
     )
 
-    player_states_to_save.clear()
-    processed_games_count = 0
+    counter = 0
+    are_games_to_process = counter < max_games_to_process
 
-    while 0 < games_to_process:
+    while are_games_to_process:
+        games_to_process = min(batch_size, max_games_to_process - counter)
+
         # Process game ids at offset
         logging.info(
-            f'Processing {min(batch_size, games_to_process)} games: '
-            f'Offset {offset}'
+            f'Processing {games_to_process} games: '
+            f'Offset {counter}'
         )
-        # batch_size = min(games_to_process, batch_size)
-        games = SELECT_GAMES_QUERY.all()[offset:offset + batch_size]
+        
+        # Get the next batch of games
+        games = SELECT_GAMES_QUERY.all()[:games_to_process]
+
+        # Clear save queue
+        player_states_to_save.clear()
         
         for game in games:
-            parse_player_states(GameWrapper(game), processed_games_count)
+            logging.info(
+                f'Processing game {game.id}: Offset {counter}')
+            
+            parse_player_states(GameWrapper(game))
             game.version = CURRENT_VERSION
-            processed_games_count += 1
+            counter += 1
         
         # Save Player States to the DB
         Game.objects.bulk_update(games, ['version'])
         PlayerState.objects.bulk_create(player_states_to_save)
 
-        offset += batch_size
-        games_to_process -= batch_size
+        are_games_to_process = games and counter < max_games_to_process
 
-    return processed_games_count, games_to_process < 0
+    return counter

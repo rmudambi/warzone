@@ -122,21 +122,23 @@ def calculate_game_data_view(request):
         form = CalculateGameDataForm(request.POST)
         if form.is_valid():
             games_to_process = form.cleaned_data['max_results']
-            offset = form.cleaned_data['offset']
+            batch_size = form.cleaned_data['batch_size']
 
             start_time = datetime.now()
 
             # Import games
-            count, all_games_processed = calculate_game_data(games_to_process,
-                offset)
+            count = calculate_game_data(games_to_process, batch_size)
 
             end_time = datetime.now()
+
+            # All games must have been handled
+            all_games_processed = count < games_to_process
 
             message = (
                 f'Calculated game data for {count} games. '
                 f'There are {"no " if all_games_processed else ""} more games '
                 f'to be processed. '
-                f'Execution duration was {str(end_time - start_time)}'
+                f'Execution duration was {end_time - start_time}'
             )
 
             return home(request, message)
