@@ -201,7 +201,7 @@ class Game(models.Model):
     players = models.ManyToManyField(PlayerAccount, through='Player')
     ladder = models.ForeignKey(Ladder, on_delete=models.CASCADE, null=True,
             blank=True)
-    version = models.SmallIntegerField(default=0)
+    version = models.SmallIntegerField(default=0, db_index=True)
 
     def __str__(self):
         return self.name
