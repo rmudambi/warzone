@@ -6,17 +6,17 @@ DONE    Add logging
 DONE    import ladder games - roughly 160,0000 in total on new ladder
             (all games that ended after 2015-09-25 20:00:00)
             imported 22,926 games
-TODO    store all ladder teams
 TODO    add additional useful metadata
-            incomes
-            armies on board
-            armies deployed
-            cumulative armies deployed
-            territries controlled
-            bonuses threatened
-            income threatened
+DONE        incomes
+DONE        armies on board
+DONE        armies deployed
+DONE        cumulative armies deployed
+DONE        territries controlled
+TODO        bonuses threatened
+TODO        income threatened
 
 TODO    perform data analysis
+TODO    store all ladder teams
 TODO    bootstrap/iterate/etc.
 
 TODO    read about python singletons
