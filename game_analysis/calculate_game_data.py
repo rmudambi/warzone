@@ -1,15 +1,18 @@
 import logging
 
+from typing import Dict, List, Set
+
 from django.db.models import Prefetch
+from django.db.models.query import QuerySet
 
 from . import cache
 from .models import Game, Map, Order, Player, PlayerState, Turn
-from .wrappers import GameWrapper, PlayerStateWrapper
+from .wrappers import GameWrapper, MapWrapper, PlayerStateWrapper
 
-player_states_to_save = []
+player_states_to_save: List[PlayerState] = []
 
 CURRENT_VERSION = 1
-SELECT_GAMES_QUERY = (
+SELECT_GAMES_QUERY: QuerySet = (
     Game.objects
         .exclude(version=CURRENT_VERSION)
         .prefetch_related(
@@ -25,7 +28,8 @@ SELECT_GAMES_QUERY = (
 
 
 # Create a Player State Wrapper for the next turn
-def set_player_state_wrapper_turn(wrapper, turn):
+def set_player_state_wrapper_turn(wrapper: PlayerStateWrapper,
+        turn: Turn) -> None:
     wrapper.player_state = PlayerState(
         turn = turn,
         player = wrapper.player_state.player,
@@ -41,11 +45,12 @@ def set_player_state_wrapper_turn(wrapper, turn):
 
 
 # Get ids of all bonuses that have been completed by acquiring this territory
-def get_completed_bonus_ids(map_wrapper, territory_id, controlled_territories):
+def get_completed_bonus_ids(map_wrapper: MapWrapper, territory_id: int,
+        controlled_territories: Set[int]) -> List[int]:
     # Get all bonuses this territory is a part of
     territory_bonus_ids = map_wrapper.territories[territory_id].bonus_ids
 
-    completed_bonus_ids = []
+    completed_bonus_ids: List[int] = []
     for bonus_id in territory_bonus_ids:
         # If the player controls all territories in a bonus
         if controlled_territories.issuperset(
@@ -57,7 +62,9 @@ def get_completed_bonus_ids(map_wrapper, territory_id, controlled_territories):
 
 
 # Process a Player gaining possession of a Territory
-def process_territory_gain(map_wrapper, territory_owners, attacker, order):
+def process_territory_gain(map_wrapper: MapWrapper,
+        territory_owners: Dict[int, int], attacker: PlayerStateWrapper,
+        order: Order) -> None:
     result = order.attackresult
     if order.order_type_id == 'GameOrderAttackTransfer':
         to_territory_id = order.secondary_territory_id
@@ -101,7 +108,9 @@ def process_territory_gain(map_wrapper, territory_owners, attacker, order):
 
 
 # Process a Player losing possession of a Territory
-def process_territory_loss(map_wrapper, territory_owners, defender, order):
+def process_territory_loss(map_wrapper: MapWrapper,
+        territory_owners: Dict[int, int], defender: PlayerStateWrapper,
+        order: Order) -> None:
     territory_id = (
         order.secondary_territory_id
             if order.secondary_territory_id
@@ -134,7 +143,8 @@ def process_territory_loss(map_wrapper, territory_owners, defender, order):
 
 
 # Update Player States following a Pick Order
-def process_pick(map_wrapper, territory_owners, players_state, order):
+def process_pick(map_wrapper: MapWrapper, territory_owners: Dict[int, int],
+        players_state: Dict[int, PlayerStateWrapper], order: Order) -> None:
     if order.attackresult.is_successful:
         picker = players_state[order.player_id]
         territory_id = order.primary_territory_id
@@ -146,7 +156,9 @@ def process_pick(map_wrapper, territory_owners, players_state, order):
 
 
 # Update Player States following a Deployment Order
-def process_deployment(map_wrapper, players_state, order):
+def process_deployment(map_wrapper: MapWrapper,
+        players_state: Dict[int, PlayerStateWrapper],
+        order: Order) -> None:
     deployer = players_state[order.player_id]
     deployer.player_state.armies_on_board += order.armies
     deployer.territories[order.primary_territory_id] += order.armies
@@ -154,7 +166,11 @@ def process_deployment(map_wrapper, players_state, order):
     deployer.player_state.cumulative_armies_deployed += order.armies
 
 
-def process_army_movement(map_wrapper, territory_owners, players_state, order):
+# Update Player and Territory States following an Attack/Transfer order
+def process_army_movement(map_wrapper: MapWrapper,
+        territory_owners: Dict[int, int],
+        players_state: Dict[int, PlayerStateWrapper],
+        order: Order) -> None:
     result = order.attackresult
     if result.attack_size > 0:
         # Get territories
@@ -201,7 +217,9 @@ def process_army_movement(map_wrapper, territory_owners, players_state, order):
             attacker.territories[to_territory_id] += result.attack_size
 
 
-def process_blockade(map_wrapper, territory_owners, players_state, order):
+# Update Player and Territory States following a Blockade order
+def process_blockade(map_wrapper: MapWrapper, territory_owners: Dict[int, int],
+        players_state: Dict[int, PlayerStateWrapper], order: Order) -> None:
     blockader = players_state[order.player_id]
     territory_id = order.primary_territory_id
 
@@ -218,12 +236,12 @@ def process_blockade(map_wrapper, territory_owners, players_state, order):
 
 
 # Return Player States data for a Game
-def parse_player_states(game_wrapper):
+def parse_player_states(game_wrapper: GameWrapper) -> None:
     template = cache.get_template(game_wrapper.game.template_id)
     map_wrapper = cache.get_map_wrapper(template.map_id, False)
 
     # Initialize a dictionary to contain the current state of each player
-    players_state = {
+    players_state: Dict[int, PlayerStateWrapper] = {
         player_id: PlayerStateWrapper(
             PlayerState(
                 turn = None,
@@ -240,7 +258,7 @@ def parse_player_states(game_wrapper):
     }
 
     # Dictionary of territory ids to the player id of the current controller
-    territory_owners = {
+    territory_owners: Dict[int, int] = {
         territory_id: cache.get_neutral_id()
         for territory_id in map_wrapper.territories
     }
@@ -283,7 +301,7 @@ def parse_player_states(game_wrapper):
 
 
 # Create Player State data for a given number of games from an given offset
-def calculate_game_data(max_games_to_process, batch_size=5):
+def calculate_game_data(max_games_to_process: int, batch_size:int = 5) -> int:
     logging.info(
         f'Processing {max_games_to_process} games'
     )

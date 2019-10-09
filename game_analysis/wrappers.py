@@ -1,37 +1,41 @@
-from .models import PlayerState
+from typing import Dict, List, Set
+
+from .models import Bonus, Game, Map, Order, Player, PlayerState, Territory
+from .models import Turn
+
 
 class TerritoryWrapper():
-    def __init__(self, territory, use_api_ids):
+    def __init__(self, territory: Territory, use_api_ids: bool):
         self.territory = territory
-        self.connected_territory_ids = {
+        self.connected_territory_ids: Set[int] = {
             to_territory.api_id if use_api_ids else to_territory.pk
             for to_territory in territory.connected_territories.all()
         }
-        self.bonus_ids = {
+        self.bonus_ids: Set[int] = {
             bonus.api_id if use_api_ids else bonus.pk
             for bonus in territory.bonuses.all()
         }
 
 
 class BonusWrapper():
-    def __init__(self, bonus, use_api_ids):
+    def __init__(self, bonus: Bonus, use_api_ids: bool):
         self.bonus = bonus
-        self.territory_ids = {
+        self.territory_ids: Set[int] = {
             territory.api_id if use_api_ids else territory.pk
             for territory in bonus.territories.all()
         }
 
 
 class MapWrapper():
-    def __init__(self, map, use_api_ids):
+    def __init__(self, map: Map, use_api_ids: bool):
         self.map = map
         self.uses_api_ids = use_api_ids
-        self.territories = {
+        self.territories: Dict[int, TerritoryWrapper] = {
             territory.api_id if use_api_ids else territory.pk:
                 TerritoryWrapper(territory, use_api_ids)
             for territory in map.territory_set.all()
         }
-        self.bonuses = {
+        self.bonuses: Dict[int, BonusWrapper] = {
             bonus.api_id if use_api_ids else bonus.pk:
                 BonusWrapper(bonus, use_api_ids)
             for bonus in map.bonus_set.all()
@@ -39,33 +43,34 @@ class MapWrapper():
 
 
 class PlayerStateWrapper():
-    def __init__(self, player_state):
+    def __init__(self, player_state: PlayerState):
         self.player_state = player_state
-        self.territories = {}
-        self.bonus_ids = set()
+        # A mapping from the territory id to number of armies
+        self.territories: Dict[int, int] = {}
+        # Set of bonuses controlled by player
+        self.bonus_ids: Set[int] = set()
 
 
 class TurnWrapper():
-    def __init__(self, turn):
+    def __init__(self, turn: Turn):
         self.turn = turn
-        self.player_states = {
+        self.player_states: Dict[int, PlayerStateWrapper] = {
             player_state.player_id: PlayerStateWrapper(player_state)
             for player_state in turn.playerstate_set.all()
         }
-        self.orders = sorted(
+        self.orders: List[Order] = sorted(
             list(turn.order_set.all()),
             key=lambda order: order.order_number
         )
-        self.territory_owners = {}
 
 
 class GameWrapper():
     def __init__(self, game, shallow=False):
         self.game = game
-        self.players = {} if shallow else {
+        self.players: Dict[int, Player] = {} if shallow else {
             player.pk: player for player in game.player_set.all()
         }
-        self.turns = [] if shallow else sorted(
+        self.turns: List[Turn] = [] if shallow else sorted(
             [TurnWrapper(turn) for turn in game.turn_set.all()],
             key=lambda turn_wrapper: turn_wrapper.turn.turn_number
         )

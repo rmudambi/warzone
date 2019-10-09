@@ -1,37 +1,39 @@
 import logging
 
+from typing import Dict
+
 from .models import Card, Game, Ladder, Player, Map, Order, OrderType
 from .models import PlayerAccount, PlayerStateType, Template
 from .models import TemplateCardSetting, Territory, Turn
 from .wrappers import BonusWrapper, GameWrapper, MapWrapper, TerritoryWrapper
 
-# Dictionary from ladder id -> ladder
-ladders = {}
+# Cached Ladders
+ladders: Dict[int, Ladder] = {}
 
-# Dictionary from card id -> card
-cards = {}
+# Cached Cards
+cards: Dict[int, Card] = {}
 
-# Dictionary from player state type id -> player state types
-player_state_types = {}
+# Cached Player State Types
+player_state_types: Dict[str, PlayerStateType] = {}
 
-# Dictionary from card order type id -> order type
-order_types = {}
+# Cached Order Types
+order_types: Dict[str, OrderType] = {}
 
-# Dictionary from template id -> template
-templates = {}
+# Cached Templates
+templates: Dict[int, Template] = {}
 
-# Dictionary from map id -> MapWrapper
-maps = {}
+# Cached Maps
+maps: Dict[int, MapWrapper] = {}
 
-# Dictionary from player account id -> player account
-player_accounts = {}
+# Cached Player Accounts
+player_accounts: Dict[int, PlayerAccount] = {}
 
-# Dictionary from game id -> GameWrapper
-games = {}
+# Cached Games
+games: Dict[int, GameWrapper] = {}
 
 
 # Get Ladder
-def get_ladder(id=id):
+def get_ladder(id: int) -> Ladder:
     try:
         return ladders[id]
     except KeyError:
@@ -40,7 +42,7 @@ def get_ladder(id=id):
 
 
 # Get Card
-def get_card(id=id):
+def get_card(id: int) -> Card:
     try:
         return cards[id]
     except KeyError:
@@ -49,7 +51,7 @@ def get_card(id=id):
 
 
 # Get Player State Type
-def get_player_state_type(id=id):
+def get_player_state_type(id: str) -> PlayerStateType:
     try:
         return player_state_types[id]
     except KeyError:
@@ -58,7 +60,7 @@ def get_player_state_type(id=id):
 
 
 # Get OrderType
-def get_order_type(id=id):
+def get_order_type(id: str) -> OrderType:
     try:
         return order_types[id]
     except KeyError:
@@ -67,27 +69,27 @@ def get_order_type(id=id):
 
 
 # Get the Name of the Neutral "Player Account"
-def get_neutral_name():
+def get_neutral_name() -> str:
     return 'Neutral'
 
 
 # Get ID of Neutral "Player Account"
-def get_neutral_id():
+def get_neutral_id() -> int:
     return 0
 
 
 # Get Wasteland baseline state for territory
-def get_wasteland_baseline_state():
+def get_wasteland_baseline_state() -> str:
     return 'Wasteland'
 
 
 # Get 'In Distribution' baseline state for territory
-def get_in_distribution_baseline_state():
+def get_in_distribution_baseline_state() -> str:
     return 'In Distribution'
 
 
 # Add MapWrapper to cache
-def add_map_to_cache(map_id, for_import):
+def add_map_to_cache(map_id: int, for_import: bool) -> None:
     prefetches = ((
         'territory_set',
         'bonus_set'
@@ -104,7 +106,7 @@ def add_map_to_cache(map_id, for_import):
 
 
 # Get BonusWrapper
-def get_bonus_wrapper(map_id, bonus_id):
+def get_bonus_wrapper(map_id: int, bonus_id: int) -> BonusWrapper:
     # If the Map is not in the cache or the Map is in the wrong format
     if map_id not in maps or maps[map_id].uses_api_ids:
         # Add the MapWrapper to the cache
@@ -114,12 +116,14 @@ def get_bonus_wrapper(map_id, bonus_id):
 
 
 # Get Territory
-def get_territory(map_id, territory_id, for_import):
+def get_territory(map_id: int, territory_id: int,
+        for_import: bool) -> Territory:
     return get_territory_wrapper(map_id, territory_id, for_import).territory
 
 
 # Get TerritoryWrapper
-def get_territory_wrapper(map_id, territory_id, for_import):
+def get_territory_wrapper(map_id: int, territory_id: int,
+        for_import:bool) -> TerritoryWrapper:
     # If the Map is not in the cache or the Map is in the wrong format
     if map_id not in maps or maps[map_id].uses_api_ids != for_import:
         # Add the MapWrapper to the cache
@@ -131,14 +135,14 @@ def get_territory_wrapper(map_id, territory_id, for_import):
 # Fetches Map from cache if it exists.
 # Otherwise, fetches Map from DB and adds it to the cache.
 # Throws Maps.DoesNotExist if Map doesn't exist in the DB
-def get_map(map_id, for_import):
+def get_map(map_id: int, for_import: bool) -> Map:
     return get_map_wrapper(map_id, for_import).map
 
 
 # Fetches MapWrapper from cache if it exists.
 # Otherwise, fetches Map from DB and adds it to the cache.
 # Throws Maps.DoesNotExist if Map doesn't exist in the DB
-def get_map_wrapper(map_id, for_import):
+def get_map_wrapper(map_id: int, for_import: bool) -> MapWrapper:
     logging.debug(f'Getting Map {map_id}')
 
     # If map is not in the dictionary
@@ -150,14 +154,14 @@ def get_map_wrapper(map_id, for_import):
 
 
 # Adds Template to cache
-def add_template_to_cache(template):
+def add_template_to_cache(template: Template) -> None:
     templates[template.id] = template
 
 
 # Fetches Template from cache if it exists
 # Otherwise, Fetches Template from DB and adds it to the cache.
 # Throws Template.DoesNotExist if Template doesn't exist in the DB.
-def get_template(template_id):
+def get_template(template_id: int) -> Template:
     # if template is not in the dictionary
     if template_id  not in templates:
         template = Template.objects.get(pk=template_id)
@@ -169,7 +173,7 @@ def get_template(template_id):
 
 
 # Add the player account to the cache
-def add_player_account_to_cache(player_account):
+def add_player_account_to_cache(player_account: PlayerAccount) -> None:
     player_accounts[player_account.id] = player_account
 
 
@@ -177,7 +181,7 @@ def add_player_account_to_cache(player_account):
 # Throws PlayerAccount.DoesNotExist if PlayerAccount doesn't exist in the DB
 # Add the player account to the player accounts cache. Uses ID as key
 # Returns Player
-def get_player_account(player_account_id):
+def get_player_account(player_account_id: int) -> PlayerAccount:
     if player_account_id not in player_accounts:
         player_account = PlayerAccount.objects.get(pk=player_account_id)
         add_player_account_to_cache(player_account)
@@ -186,25 +190,25 @@ def get_player_account(player_account_id):
 
 
 # Add the Player to the cache
-def add_player_to_cache(player, id):
+def add_player_to_cache(player: Player, id: int) -> None:
     games[player.game_id].players[id] = player
 
 
 # Fetches Player from cache
-def get_player(game_id, player_id):
+def get_player(game_id: int, player_id: int) -> Player:
     return games[game_id].players[player_id]
 
 
 # Clears all games from cache
-def clear_games_from_cache():
+def clear_games_from_cache() -> None:
     games.clear()
 
 
 # Add Game to cache
-def add_game_to_cache(game):
+def add_game_to_cache(game: Game) -> None:
     games[game.id] = GameWrapper(game, True)
 
 
 # Get Game from cache
-def get_game(game_id):
+def get_game(game_id: int) -> Game:
     return games[game_id].game

@@ -44,7 +44,7 @@ class Card(models.Model):
     def __str__(self):
         return self.name
 
-    def get_order_type_id(self):
+    def get_order_type_id(self) -> str:
         # TODO ideally this should be explictly tied to the values of OrderType
         return f'GameOrderPlayCard{self.name[:-5].replace(" ", "")}'
 
@@ -57,11 +57,11 @@ class PlayerAccount(models.Model):
     def __str__(self):
         return f'{self.id}:{self.name}'
 
-    def get_url(self):
+    def get_url(self) -> str:
         return f'{WARZONE_PATH}/Profile?p={self.id}'
     
     # Get the id used in the games api
-    def get_api_id(self):
+    def get_api_id(self) -> int:
         return int(str(self.id)[2:-2])
 
 
@@ -72,7 +72,7 @@ class Map(models.Model):
     def __str__(self):
         return self.name
 
-    def get_url(self):
+    def get_url(self) -> str:
         return f'{WARZONE_PATH}/SinglePlayer?PreviewMap={self.id}'
 
 
@@ -309,7 +309,7 @@ class PlayerState(models.Model):
     # TODO for version 2
     income_threatened = models.SmallIntegerField()
 
-    def get_movable_armies_on_board(self):
+    def get_movable_armies_on_board(self) -> int:
         return (self.armies_on_board 
             - int(turn.game.template.is_one_army_stand_guard) 
             * self.territories_controlled)

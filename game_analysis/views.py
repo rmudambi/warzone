@@ -1,8 +1,10 @@
 import logging
 
 from datetime import datetime
+from typing import Optional
 from urllib.error import URLError
 
+from django.core.handlers.wsgi import WSGIRequest
 from django.db import models
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
@@ -18,7 +20,7 @@ from .sandbox import sandbox_method
 GAME_ANALYSIS = 'game_analysis'
 
 
-def home(request, message=None):
+def home(request: WSGIRequest, message: Optional[str] = None) -> HttpResponse:
     return render(
         request,
         GAME_ANALYSIS + '/home.html',
@@ -26,7 +28,7 @@ def home(request, message=None):
     )
 
 
-def about(request):
+def about(request: WSGIRequest) -> HttpResponse:
     return render(request, GAME_ANALYSIS + '/about.html')
 
 
@@ -37,7 +39,7 @@ class LaddersListView(ListView):
         return super(LaddersListView, self).get_context_data(**kwargs)
 
 
-def import_game_view(request):
+def import_game_view(request: WSGIRequest) -> HttpResponse:
     if request.method == 'POST':
         try:
             form = ImportGameForm(request.POST)
@@ -75,7 +77,7 @@ def import_game_view(request):
         {'form_title': 'Import Game', 'form': form})
 
 
-def import_ladder_games_view(request):
+def import_ladder_games_view(request: WSGIRequest) -> HttpResponse:
     if request.method == 'POST':
         try:
             form = ImportLadderGamesForm(request.POST)
@@ -117,7 +119,7 @@ def import_ladder_games_view(request):
         {'form_title': 'Import Ladder Games', 'form': form})
 
 
-def calculate_game_data_view(request):
+def calculate_game_data_view(request: WSGIRequest) -> HttpResponse:
     if request.method == 'POST':
         form = CalculateGameDataForm(request.POST)
         if form.is_valid():
@@ -149,7 +151,7 @@ def calculate_game_data_view(request):
         {'form_title': 'Calculate Game Data', 'form': form})
 
 
-def sandbox(request):
+def sandbox(request: WSGIRequest) -> HttpResponse:
     return render(request, 
         GAME_ANALYSIS + '/sandbox.html',
         {'message': sandbox_method()}
