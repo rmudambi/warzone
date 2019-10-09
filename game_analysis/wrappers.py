@@ -60,13 +60,12 @@ class TurnWrapper():
 
 
 class GameWrapper():
-    def __init__(self, game, players=None):
+    def __init__(self, game, shallow=False):
         self.game = game
-        self.players = players if players != None else {
-            player.pk: player
-            for player in game.player_set.all()
+        self.players = {} if shallow else {
+            player.pk: player for player in game.player_set.all()
         }
-        self.turns = sorted(
+        self.turns = [] if shallow else sorted(
             [TurnWrapper(turn) for turn in game.turn_set.all()],
             key=lambda turn_wrapper: turn_wrapper.turn.turn_number
         )

@@ -629,7 +629,7 @@ def parse_game(game_data, ladder=None):
             number_of_turns = game_json['numberOfTurns']
         )
 
-        cache.add_game_to_cache(game, {})
+        cache.add_game_to_cache(game)
         parse_players(game, game_json)
         parse_turns(game, template.map_id, game_json)
         games_to_save.append(game)

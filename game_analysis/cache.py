@@ -90,6 +90,7 @@ def get_in_distribution_baseline_state():
 def add_map_to_cache(map_id, for_import):
     prefetches = ((
         'territory_set',
+        'bonus_set'
     ) if for_import else (
         'territory_set__connected_territories',
         'territory_set__bonuses',
@@ -200,8 +201,8 @@ def clear_games_from_cache():
 
 
 # Add Game to cache
-def add_game_to_cache(game, game_players=None):
-    games[game.id] = GameWrapper(game, game_players)
+def add_game_to_cache(game):
+    games[game.id] = GameWrapper(game, True)
 
 
 # Get Game from cache
