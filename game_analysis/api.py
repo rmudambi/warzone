@@ -24,13 +24,14 @@ def hit_api_with_auth(email: str, apitoken: str, api: str,
 
 
 # Perform a POST request to Warzone
-def post_to_api(api: str, post_data, retry_number: int = 0) -> bytes:
+def post_to_api(api: str, post_data: bytes, retry_number: int = 0) -> bytes:
     try:
         url = WARZONE_COM + api
         logging.debug(f'Posting to {url}')
         req = request.Request(url, data=post_data)
         with request.urlopen(req) as response:
-            return response.read()
+            read_bytes: bytes = response.read()
+            return read_bytes
     except error.URLError:
         if retry_number < 2:
             logging.warn(f'Error posting to {url}')
@@ -46,9 +47,10 @@ def get_api_token(email: str, password: str) -> str:
     try:
         api_token_response = hit_api('/API/GetAPIToken', 
             {'Email': email, 'Password': password})
-        return loads(api_token_response)['APIToken']
+        api_token: str = loads(api_token_response)['APIToken']
+        return api_token
     except error.URLError as e:
-        raise error.URLError(reason='Error getting API Token')
+        raise error.URLError('Error getting API Token')
 
 
 # Retrieve a page of game ids from the given ladder offset by input amount

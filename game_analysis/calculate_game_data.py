@@ -181,17 +181,14 @@ def process_army_movement(map_wrapper: MapWrapper,
         attacker = players_state[order.player_id]
 
         if result.is_attack:
-            # Get defending player
-            defender = (
-                players_state[territory_owners[to_territory_id]]
-                if territory_owners[to_territory_id] != 0 else None
-            )
+            # Get defending player id (0 if neutral)
+            defender: int = territory_owners[to_territory_id]
 
             # Remove armies from armies on board
             attacker.player_state.armies_on_board -= (
                 result.attacking_armies_killed)
-            if defender != None:
-                defender.player_state.armies_on_board -= (
+            if defender:
+                players_state[defender].player_state.armies_on_board -= (
                     result.defending_armies_killed)
             
             # If the attack is successful
@@ -201,15 +198,15 @@ def process_army_movement(map_wrapper: MapWrapper,
                     attacker, order)
                 
                 # And remove it from the defender if the defender isn't neutral
-                if defender != None:
+                if defender:
                     process_territory_loss(map_wrapper, territory_owners,
-                        defender, order)
+                        players_state[defender], order)
             else:
                 # Remove armies killed from their respective territories
                 attacker.territories[from_territory_id] -= (
                     result.attacking_armies_killed)
-                if defender != None:
-                    defender.territories[to_territory_id] -= (
+                if defender:
+                    players_state[defender].territories[to_territory_id] -= (
                         result.defending_armies_killed)
         else:
             # Move attacking armies from 'from territory' to 'to_territory'

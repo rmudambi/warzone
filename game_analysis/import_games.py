@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from json import loads as json_loads
 from pytz import UTC
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Set, Tuple
 from urllib.error import URLError
 
 from . import api
@@ -14,7 +14,7 @@ from .models import *
 # Tuple of custom argument for the settings of each card type
 # Key is the field in the DB
 # Value is the corresponding key in the API
-CARD_SETTINGS_FIELD_MAPPINGS: Sequence[Dict[str, str]] = (
+CARD_SETTINGS_FIELD_MAPPINGS: Tuple[Dict[str, str], ...] = (
     # Reinforcement
     # TODO support other reinforcement card modes
     # not needed for most (all?) strategic templates
@@ -357,7 +357,7 @@ def parse_picks_turn(game: Game, map_id: int, picks_node: dict,
     
     # Get pick results
     # Needed since the api doesn't reveal who received which picks otherwise
-    raw_pick_results = {}
+    raw_pick_results: Dict[int, Set[int]] = {}
     for territory_node in after_picks_state_node:
         territory_owner = territory_node['ownedBy']
         territory_id = int(territory_node['terrID'])
@@ -366,7 +366,7 @@ def parse_picks_turn(game: Game, map_id: int, picks_node: dict,
         if territory_owner != cache.get_neutral_name():
             territory_owner = int(territory_owner)
             if territory_owner not in raw_pick_results.keys():
-                raw_pick_results[territory_owner] = set([territory_id])
+                raw_pick_results[territory_owner] = {territory_id}
             else:
                 raw_pick_results[territory_owner].add(territory_id)
 
@@ -657,12 +657,12 @@ def parse_ladder_game(email: str, api_token: str, game_id: int, offset: int,
     try:
         # Check if Game already exists
         additional_info = ''
-        game = Game.objects.get(pk=game_id)
+        game_from_db = Game.objects.get(pk=game_id)
         
         # If Game exists check that it has the correct Ladder
-        if ladder and game.ladder_id != ladder.id:
-            game.ladder = ladder
-            games_to_update.append(game)
+        if ladder and game_from_db.ladder_id != ladder.id:
+            game_from_db.ladder = ladder
+            games_to_update.append(game_from_db)
             additional_info = f'Ladder set to {ladder}.'
 
         logging.debug(f'Game {game_id} already exists. {additional_info}')
@@ -674,8 +674,8 @@ def parse_ladder_game(email: str, api_token: str, game_id: int, offset: int,
         game_data = api.get_game_data_from_id(email, api_token, game_id)
 
         # Parse Game data
-        game = parse_game(game_data, ladder)
-        return game
+        new_game = parse_game(game_data, ladder)
+        return new_game
 
 
 # Imports a Game into with the given ID into the DB along with associated data

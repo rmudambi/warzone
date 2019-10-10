@@ -1,7 +1,7 @@
 import logging
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 from urllib.error import URLError
 
 from django.core.handlers.wsgi import WSGIRequest
@@ -20,23 +20,27 @@ from .sandbox import sandbox_method
 GAME_ANALYSIS = 'game_analysis'
 
 
-def home(request: WSGIRequest, message: Optional[str] = None) -> HttpResponse:
-    return render(
+def home(request: WSGIRequest,
+        message: Optional[Union[str, BaseException]] = None) -> HttpResponse:
+    response: HttpResponse = render(
         request,
         GAME_ANALYSIS + '/home.html',
         {'date': datetime.now(), 'message': message}
     )
+    return response
 
 
 def about(request: WSGIRequest) -> HttpResponse:
-    return render(request, GAME_ANALYSIS + '/about.html')
+    response: HttpResponse = render(request, GAME_ANALYSIS + '/about.html')
+    return response
 
 
 class LaddersListView(ListView):
     model = Ladder
 
-    def get_context_data(self, **kwargs):
-        return super(LaddersListView, self).get_context_data(**kwargs)
+    def get_context_data(self, **kwargs: object) -> dict:
+        context: dict = super(LaddersListView, self).get_context_data(**kwargs)
+        return context
 
 
 def import_game_view(request: WSGIRequest) -> HttpResponse:
@@ -73,8 +77,10 @@ def import_game_view(request: WSGIRequest) -> HttpResponse:
     else:
         form = ImportGameForm()
     
-    return render(request, GAME_ANALYSIS + '/basic_post_form.html',
+    response: HttpResponse = render(request,
+        GAME_ANALYSIS + '/basic_post_form.html',
         {'form_title': 'Import Game', 'form': form})
+    return response
 
 
 def import_ladder_games_view(request: WSGIRequest) -> HttpResponse:
@@ -114,9 +120,11 @@ def import_ladder_games_view(request: WSGIRequest) -> HttpResponse:
             return home(request, e.reason)
     else:
         form = ImportLadderGamesForm()
-    
-    return render(request, GAME_ANALYSIS + '/basic_post_form.html',
+
+    response: HttpResponse = render(request,
+        GAME_ANALYSIS + '/basic_post_form.html',
         {'form_title': 'Import Ladder Games', 'form': form})
+    return response
 
 
 def calculate_game_data_view(request: WSGIRequest) -> HttpResponse:
@@ -147,12 +155,15 @@ def calculate_game_data_view(request: WSGIRequest) -> HttpResponse:
     else:
         form = CalculateGameDataForm()
     
-    return render(request, GAME_ANALYSIS + '/basic_post_form.html',
+    response: HttpResponse = render(request,
+        GAME_ANALYSIS + '/basic_post_form.html',
         {'form_title': 'Calculate Game Data', 'form': form})
+    return response
 
 
 def sandbox(request: WSGIRequest) -> HttpResponse:
-    return render(request, 
+    response: HttpResponse = render(request, 
         GAME_ANALYSIS + '/sandbox.html',
         {'message': sandbox_method()}
     )
+    return response
