@@ -65,7 +65,7 @@ attack_results_to_save: List[AttackResult] = []
 
 
 # Clear lists of objects to save
-def clear_save_queue() -> None:
+def _clear_save_queue() -> None:
     games_to_save.clear()
     games_to_update.clear()
     player_accounts_to_save.clear()
@@ -77,7 +77,7 @@ def clear_save_queue() -> None:
 
 
 # Save game and associated objects
-def save_games_in_queue() -> None:
+def _save_games_in_queue() -> None:
     Game.objects.bulk_create(games_to_save)
     Game.objects.bulk_update(games_to_update, ['ladder'])
     PlayerAccount.objects.bulk_create(player_accounts_to_save)
@@ -90,7 +90,7 @@ def save_games_in_queue() -> None:
 
 # Fetches PlayerAccount from DB if it exists. Otherwise creates PlayerAccount
 # from Node and queue it for insertion to the DB
-def get_player_account(player_node: Dict[str, str]) -> PlayerAccount:
+def _get_player_account(player_node: Dict[str, str]) -> PlayerAccount:
     try:
         return cache.get_player_account(int(player_node['id']))
     except PlayerAccount.DoesNotExist:
@@ -102,13 +102,13 @@ def get_player_account(player_node: Dict[str, str]) -> PlayerAccount:
 
 
 # Parse Player data and queue it for insertion to the DB
-def parse_players(game: Game, game_json: dict) -> None:
+def _parse_players(game: Game, game_json: dict) -> None:
     logging.debug(f'Adding Players to Game {game.id}')
 
     player_nodes = game_json['players']
     for player_node in player_nodes:
         # Get the player account
-        player_account = get_player_account(player_node)
+        player_account = _get_player_account(player_node)
 
         # Create Player
         player = Player(
@@ -123,7 +123,7 @@ def parse_players(game: Game, game_json: dict) -> None:
 
 
 # Import all territories and bonuses to the DB for a given Map
-def import_territories_and_bonuses(map: Map, territories_node: dict,
+def _import_territories_and_bonuses(map: Map, territories_node: dict,
         bonuses_node: dict) -> None:
     # Dictionary of Territory api_ids to Territories
     territories = {}
@@ -169,7 +169,7 @@ def import_territories_and_bonuses(map: Map, territories_node: dict,
 
 
 # Gets the Territory specified by the map id and territory id
-def get_territory(map_id: int, territory_id: int) -> Territory:
+def _get_territory(map_id: int, territory_id: int) -> Territory:
     return cache.get_territory(map_id, territory_id, True)
 
 
@@ -191,7 +191,7 @@ def get_map(map_node: dict) -> Map:
         map.save()
         
         # Import Territories and Bonuses
-        import_territories_and_bonuses(map, map_node['territories'],
+        _import_territories_and_bonuses(map, map_node['territories'],
             map_node['bonuses'])
 
         cache.add_map_to_cache(map_id, True)
@@ -199,14 +199,14 @@ def get_map(map_node: dict) -> Map:
 
 
 # Import all Overridden Bonuses to the DB for a given Template
-def import_overridden_bonuses(template: Template,
+def _import_overridden_bonuses(template: Template,
         overridden_bonus_nodes: dict) -> None:
     # TODO - not needed for 1v1 ladder template
     pass
 
 
 # Parse Template Card Settings and queue it for insertion to the DB
-def parse_card_settings(cards_settings_to_save: List[TemplateCardSetting],
+def _parse_card_settings(cards_settings_to_save: List[TemplateCardSetting],
         template: Template, card_id: int, settings_node: dict,
         field_mappings: Dict[str, str]) -> None:
     card = cache.get_card(card_id)
@@ -232,10 +232,10 @@ def parse_card_settings(cards_settings_to_save: List[TemplateCardSetting],
 
 
 # Import Card Settings to the DB for a given Template
-def import_cards_settings(template: Template, settings_node: dict) -> None:
+def _import_cards_settings(template: Template, settings_node: dict) -> None:
     cards_settings_to_save: List[TemplateCardSetting] = []
     for index, card_field_mappings in enumerate(CARD_SETTINGS_FIELD_MAPPINGS):
-        parse_card_settings(cards_settings_to_save, template, index + 1,
+        _parse_card_settings(cards_settings_to_save, template, index + 1,
             settings_node, card_field_mappings)
     
     # Save Template Card Settings to DB
@@ -246,7 +246,7 @@ def import_cards_settings(template: Template, settings_node: dict) -> None:
 # Otherwise, Fetches Template from DB if it exists there and creates card
 # settings dictionary. Otherwise creates Template from game_json, saves it to
 # DB and dictionary, and creates card settings dictionary. Returns Template
-def get_template(game_json: dict) -> Template:
+def _get_template(game_json: dict) -> Template:
     template_id = int(game_json['templateID'])
 
     try:
@@ -304,15 +304,15 @@ def get_template(game_json: dict) -> Template:
         
         template.save()
 
-        import_overridden_bonuses(template, settings['OverriddenBonuses'])
-        import_cards_settings(template, settings)
+        _import_overridden_bonuses(template, settings['OverriddenBonuses'])
+        _import_cards_settings(template, settings)
 
         cache.add_template_to_cache(template)
         return template
 
 
 # Parse baseline
-def parse_baseline(game: Game, map_id: int, initial_state_node: dict) -> None:
+def _parse_baseline(game: Game, map_id: int, initial_state_node: dict) -> None:
     template = cache.get_template(game.template_id)
     wasteland_size = template.wasteland_size
     out_distribution_size = template.out_distribution_neutrals
@@ -320,7 +320,7 @@ def parse_baseline(game: Game, map_id: int, initial_state_node: dict) -> None:
 
     for territory_node in initial_state_node:
         territory_owner = territory_node['ownedBy']
-        territory = get_territory(map_id, int(territory_node['terrID']))
+        territory = _get_territory(map_id, int(territory_node['terrID']))
         armies = int(territory_node['armies'])
 
         # If territory is not owned by Neutral it is in distribution
@@ -351,7 +351,7 @@ def parse_baseline(game: Game, map_id: int, initial_state_node: dict) -> None:
 
 
 # Parse the picks turn and queue it for insertion to the DB
-def parse_picks_turn(game: Game, map_id: int, picks_node: dict,
+def _parse_picks_turn(game: Game, map_id: int, picks_node: dict,
         after_picks_state_node: dict) -> None:
     turn = Turn(game=game, turn_number=-1)
     
@@ -380,9 +380,9 @@ def parse_picks_turn(game: Game, map_id: int, picks_node: dict,
         player = cache.get_player(game.id, player_api_id)
     
         for pick, territory_id in enumerate(picks_node[player_node_key]):
-            territory = get_territory(map_id, territory_id)
+            territory = _get_territory(map_id, territory_id)
             is_successful = territory.api_id in raw_pick_results[player_api_id]
-            parse_pick_order(territory, turn, order_number, False, player,
+            _parse_pick_order(territory, turn, order_number, False, player,
                 is_successful, initial_armies)
             
             # If the player controls the territory after picks
@@ -397,7 +397,7 @@ def parse_picks_turn(game: Game, map_id: int, picks_node: dict,
     for player_api_id in raw_pick_results:
         player = cache.get_player(game.id, player_api_id)
         for territory_id in raw_pick_results[player_api_id]:
-            parse_pick_order(get_territory(map_id, territory_id), turn,
+            _parse_pick_order(_get_territory(map_id, territory_id), turn,
                 order_number, True, player, True, initial_armies)
             
             order_number += 1
@@ -406,7 +406,7 @@ def parse_picks_turn(game: Game, map_id: int, picks_node: dict,
 
 
 # Parse pick Order and queue it for insertion to the DB
-def parse_pick_order(territory: Territory, turn: Turn, order_number: int,
+def _parse_pick_order(territory: Territory, turn: Turn, order_number: int,
         is_auto_pick: bool, player: Player, is_successful: bool,
         initial_armies: int) -> None:
     order = Order(
@@ -429,7 +429,7 @@ def parse_pick_order(territory: Territory, turn: Turn, order_number: int,
 
 
 # Parse basic Order and queue it for insertion to the DB
-def parse_basic_order(turn: Turn, order_number: int,
+def _parse_basic_order(turn: Turn, order_number: int,
         order_node: dict) -> None:
     order = Order(
         turn = turn,
@@ -441,7 +441,7 @@ def parse_basic_order(turn: Turn, order_number: int,
 
 
 # Parse deploy Order and queue it for insertion to the DB
-def parse_deploy_order(turn: Turn, map_id: int, order_number: int,
+def _parse_deploy_order(turn: Turn, map_id: int, order_number: int,
         order_node: dict) -> None:
     order = Order(
         turn = turn,
@@ -449,13 +449,14 @@ def parse_deploy_order(turn: Turn, map_id: int, order_number: int,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_player(turn.game.id, 
             int(order_node['playerID'])),
-        primary_territory = get_territory(map_id, int(order_node['deployOn'])),
+        primary_territory = _get_territory(map_id,
+            int(order_node['deployOn'])),
         armies = order_node['armies'])
     orders_to_save.append(order)
 
 
 # Parse attack/transfer Order and queue it for insertion to the DB
-def parse_attack_transfer_order(turn: Turn, map_id: int, order_number: int,
+def _parse_attack_transfer_order(turn: Turn, map_id: int, order_number: int,
         order_node: dict) -> None:
     order = Order(
         turn=turn,
@@ -463,8 +464,8 @@ def parse_attack_transfer_order(turn: Turn, map_id: int, order_number: int,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_player(turn.game.id, 
             int(order_node['playerID'])),
-        primary_territory = get_territory(map_id, int(order_node['from'])),
-        secondary_territory = get_territory(map_id, int(order_node['to'])),
+        primary_territory = _get_territory(map_id, int(order_node['from'])),
+        secondary_territory = _get_territory(map_id, int(order_node['to'])),
         armies = order_node['numArmies'])
     orders_to_save.append(order)
     
@@ -488,7 +489,7 @@ def parse_attack_transfer_order(turn: Turn, map_id: int, order_number: int,
         
 
 # Parse basic play card Order and queue it for insertion to the DB
-def parse_basic_play_card_order(turn: Turn, order_number: int,
+def _parse_basic_play_card_order(turn: Turn, order_number: int,
         order_node: dict) -> None:
     order = Order(
         turn=turn,
@@ -501,7 +502,7 @@ def parse_basic_play_card_order(turn: Turn, order_number: int,
 
 
 # Parse blockade Order and queue it for insertion to the DB
-def parse_blockade_order(turn: Turn, map_id: int, order_number: int,
+def _parse_blockade_order(turn: Turn, map_id: int, order_number: int,
         order_node: dict) -> None:
     order = Order(
         turn=turn,
@@ -509,33 +510,34 @@ def parse_blockade_order(turn: Turn, map_id: int, order_number: int,
         order_type = cache.get_order_type(order_node['type']),
         player = cache.get_player(turn.game.id, 
             int(order_node['playerID'])),
-        primary_territory = get_territory(map_id,
+        primary_territory = _get_territory(map_id,
             int(order_node['targetTerritoryID'])),
         card_id = order_node['cardInstanceID'])
     orders_to_save.append(order)
 
 
 # Parses the Orders for a Turn and queue them for insertion to the DB
-def parse_orders(turn: Turn, map_id: int, order_nodes: List[dict]) -> None:
+def _parse_orders(turn: Turn, map_id: int, order_nodes: List[dict]) -> None:
     for order_number, order_node in enumerate(order_nodes):
         order_node = order_nodes[order_number]
         if order_node['type'] == 'GameOrderDeploy':
-            parse_deploy_order(turn, map_id, order_number, order_node)
+            _parse_deploy_order(turn, map_id, order_number, order_node)
         elif order_node['type'] == 'GameOrderAttackTransfer':
-            parse_attack_transfer_order(turn, map_id, order_number, order_node)
+            _parse_attack_transfer_order(turn, map_id, order_number, 
+                order_node)
         elif order_node['type'] in [
                 'GameOrderReceiveCard', 
                 'GameOrderStateTransition']:
             # TODO Confirm that this is sufficient for State Transition
             # (not needed for 1v1 games where ai does not take over)
-            parse_basic_order(turn, order_number, order_node)
+            _parse_basic_order(turn, order_number, order_node)
         elif order_node['type'] in [
                 'GameOrderPlayCardReinforcement',
                 'GameOrderPlayCardOrderPriority',
                 'GameOrderPlayCardOrderDelay']:
-            parse_basic_play_card_order(turn, order_number, order_node)
+            _parse_basic_play_card_order(turn, order_number, order_node)
         elif order_node['type'] == 'GameOrderPlayCardBlockade':
-            parse_blockade_order(turn, map_id, order_number, order_node)
+            _parse_blockade_order(turn, map_id, order_number, order_node)
         elif order_node['type'] == 'GameOrderPlayCardSpy':
             # TODO not needed for 1v1 ladder
             pass
@@ -560,7 +562,7 @@ def parse_orders(turn: Turn, map_id: int, order_nodes: List[dict]) -> None:
 
 
 # Parse Turns and queue for insertion into the DB
-def parse_turns(game: Game, map_id: int, game_json: dict) -> None:
+def _parse_turns(game: Game, map_id: int, game_json: dict) -> None:
     logging.debug(f'Importing Turns for Game {game.id}')
     # Create list of turn nodes
     turn_nodes: List[dict] = []
@@ -577,10 +579,10 @@ def parse_turns(game: Game, map_id: int, game_json: dict) -> None:
         baseline_standing = game_json['standing0']
     
     # Parse Game baseline
-    parse_baseline(game, map_id, baseline_standing)
+    _parse_baseline(game, map_id, baseline_standing)
 
     # Import picks
-    parse_picks_turn(game, map_id, picks_node, game_json['standing0'])
+    _parse_picks_turn(game, map_id, picks_node, game_json['standing0'])
 
     for turn_number, turn_node in enumerate(turn_nodes):
         # create Turn object and set fields
@@ -591,7 +593,7 @@ def parse_turns(game: Game, map_id: int, game_json: dict) -> None:
             turn_number = turn_number,
             commit_date_time = commit_date_time)
     
-        parse_orders(turn, map_id, turn_node['orders'])
+        _parse_orders(turn, map_id, turn_node['orders'])
 
         turns_to_save.append(turn)
 
@@ -603,7 +605,7 @@ def parse_turns(game: Game, map_id: int, game_json: dict) -> None:
 
     
 # Parse Game and queue it for insertion to the DB
-def parse_game(game_data: bytes,
+def _parse_game(game_data: bytes,
         ladder: Optional[Ladder] = None) -> Optional[Game]:
     game_json = json_loads(game_data)
     game_id = game_json['id']
@@ -620,7 +622,7 @@ def parse_game(game_data: bytes,
         )
         return None
 
-    template = get_template(game_json)
+    template = _get_template(game_json)
 
     if int(map['id']) != template.map_id:
         # Map doesn't match the map in the template so the template has
@@ -637,8 +639,8 @@ def parse_game(game_data: bytes,
         )
 
         cache.add_game_to_cache(game)
-        parse_players(game, game_json)
-        parse_turns(game, template.map_id, game_json)
+        _parse_players(game, game_json)
+        _parse_turns(game, template.map_id, game_json)
         games_to_save.append(game)
         
         logging.debug(f'Finished parsing Game {game}')
@@ -649,7 +651,7 @@ def parse_game(game_data: bytes,
 # data if they do not yet exist. Does nothing if the Game already exists.
 # If the Games already exists but doesn't have the correct Ladder, updates it.
 # Returns the Game if it is imported and None otherwise
-def parse_ladder_game(email: str, api_token: str, game_id: int, offset: int,
+def _parse_ladder_game(email: str, api_token: str, game_id: int, offset: int,
         ladder: Ladder) -> Optional[Game]:
     logging.info(f'Parsing game {game_id}: Offset {offset}')
     cache.clear_games_from_cache()
@@ -674,7 +676,7 @@ def parse_ladder_game(email: str, api_token: str, game_id: int, offset: int,
         game_data = api.get_game_data_from_id(email, api_token, game_id)
 
         # Parse Game data
-        new_game = parse_game(game_data, ladder)
+        new_game = _parse_game(game_data, ladder)
         return new_game
 
 
@@ -701,13 +703,13 @@ def import_game(email: str, api_token: str, game_id: int) -> Optional[Game]:
             ) from e
 
         # Clear save queue
-        clear_save_queue()
+        _clear_save_queue()
 
         # Parse Game data
-        game = parse_game(game_data)
+        game = _parse_game(game_data)
 
         # Save Game to DB
-        save_games_in_queue()
+        _save_games_in_queue()
 
         return game
 
@@ -749,12 +751,12 @@ def import_ladder_games(email: str, api_token: str, ladder_id: int,
             return imported_games_count
 
         # Clear save queue
-        clear_save_queue()
+        _clear_save_queue()
         
         # Import each game if it does not yet exist
         try:
             for game_id in game_ids:
-                if parse_ladder_game(email, api_token, game_id,
+                if _parse_ladder_game(email, api_token, game_id,
                         imported_games_count, ladder):
                     successful_imported_games_count += 1
                 imported_games_count += 1
@@ -765,7 +767,7 @@ def import_ladder_games(email: str, api_token: str, ladder_id: int,
             ) from e
 
         # Save Games to DB
-        save_games_in_queue()
+        _save_games_in_queue()
 
         results_left_to_get -= len(game_ids)
         offset +=games_per_page

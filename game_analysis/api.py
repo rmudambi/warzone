@@ -11,7 +11,7 @@ GAME_ID_REGEX = 'a href="MultiPlayer\\?GameID=(\\d+)"'
 
 # Access an API on Warzone
 def hit_api(api: str, params: dict) -> bytes:
-    return post_to_api(api, parse.urlencode(params).encode())
+    return _post_to_api(api, parse.urlencode(params).encode())
 
 
 # Access an API on Warzone with the given credentials
@@ -24,7 +24,7 @@ def hit_api_with_auth(email: str, apitoken: str, api: str,
 
 
 # Perform a POST request to Warzone
-def post_to_api(api: str, post_data: bytes, retry_number: int = 0) -> bytes:
+def _post_to_api(api: str, post_data: bytes, retry_number: int = 0) -> bytes:
     try:
         url = WARZONE_COM + api
         logging.debug(f'Posting to {url}')
@@ -35,7 +35,7 @@ def post_to_api(api: str, post_data: bytes, retry_number: int = 0) -> bytes:
     except error.URLError:
         if retry_number < 2:
             logging.warn(f'Error posting to {url}')
-            return post_to_api(api, post_data, retry_number + 1)
+            return _post_to_api(api, post_data, retry_number + 1)
         else:
             logging.error(f'Error posting to {url}')
             raise

@@ -28,7 +28,7 @@ SELECT_GAMES_QUERY: QuerySet = (
 
 
 # Create a Player State Wrapper for the next turn
-def set_player_state_wrapper_turn(wrapper: PlayerStateWrapper,
+def _set_player_state_wrapper_turn(wrapper: PlayerStateWrapper,
         turn: Turn) -> None:
     wrapper.player_state = PlayerState(
         turn = turn,
@@ -45,7 +45,7 @@ def set_player_state_wrapper_turn(wrapper: PlayerStateWrapper,
 
 
 # Get ids of all bonuses that have been completed by acquiring this territory
-def get_completed_bonus_ids(map_wrapper: MapWrapper, territory_id: int,
+def _get_completed_bonus_ids(map_wrapper: MapWrapper, territory_id: int,
         controlled_territories: Set[int]) -> List[int]:
     # Get all bonuses this territory is a part of
     territory_bonus_ids = map_wrapper.territories[territory_id].bonus_ids
@@ -62,7 +62,7 @@ def get_completed_bonus_ids(map_wrapper: MapWrapper, territory_id: int,
 
 
 # Process a Player gaining possession of a Territory
-def process_territory_gain(map_wrapper: MapWrapper,
+def _process_territory_gain(map_wrapper: MapWrapper,
         territory_owners: Dict[int, int], attacker: PlayerStateWrapper,
         order: Order) -> None:
     result = order.attackresult
@@ -86,7 +86,7 @@ def process_territory_gain(map_wrapper: MapWrapper,
         attacker.territories[from_territory_id] -= result.attack_size
 
     # Get completed bonus ids
-    completed_bonus_ids = get_completed_bonus_ids(map_wrapper,
+    completed_bonus_ids = _get_completed_bonus_ids(map_wrapper,
         to_territory_id, set(attacker.territories.keys()))
     
     # Add completed bonus ids
@@ -108,7 +108,7 @@ def process_territory_gain(map_wrapper: MapWrapper,
 
 
 # Process a Player losing possession of a Territory
-def process_territory_loss(map_wrapper: MapWrapper,
+def _process_territory_loss(map_wrapper: MapWrapper,
         territory_owners: Dict[int, int], defender: PlayerStateWrapper,
         order: Order) -> None:
     territory_id = (
@@ -143,7 +143,7 @@ def process_territory_loss(map_wrapper: MapWrapper,
 
 
 # Update Player States following a Pick Order
-def process_pick(map_wrapper: MapWrapper, territory_owners: Dict[int, int],
+def _process_pick(map_wrapper: MapWrapper, territory_owners: Dict[int, int],
         players_state: Dict[int, PlayerStateWrapper], order: Order) -> None:
     if order.attackresult.is_successful:
         picker = players_state[order.player_id]
@@ -152,11 +152,11 @@ def process_pick(map_wrapper: MapWrapper, territory_owners: Dict[int, int],
         # Add initial armies per territory to total armies on board
         picker.player_state.armies_on_board += order.attackresult.attack_size
 
-        process_territory_gain(map_wrapper, territory_owners, picker, order)
+        _process_territory_gain(map_wrapper, territory_owners, picker, order)
 
 
 # Update Player States following a Deployment Order
-def process_deployment(map_wrapper: MapWrapper,
+def _process_deployment(map_wrapper: MapWrapper,
         players_state: Dict[int, PlayerStateWrapper],
         order: Order) -> None:
     deployer = players_state[order.player_id]
@@ -167,7 +167,7 @@ def process_deployment(map_wrapper: MapWrapper,
 
 
 # Update Player and Territory States following an Attack/Transfer order
-def process_army_movement(map_wrapper: MapWrapper,
+def _process_army_movement(map_wrapper: MapWrapper,
         territory_owners: Dict[int, int],
         players_state: Dict[int, PlayerStateWrapper],
         order: Order) -> None:
@@ -194,12 +194,12 @@ def process_army_movement(map_wrapper: MapWrapper,
             # If the attack is successful
             if result.is_successful:
                 # Give the territory to the attacker
-                process_territory_gain(map_wrapper, territory_owners,
+                _process_territory_gain(map_wrapper, territory_owners,
                     attacker, order)
                 
                 # And remove it from the defender if the defender isn't neutral
                 if defender:
-                    process_territory_loss(map_wrapper, territory_owners,
+                    _process_territory_loss(map_wrapper, territory_owners,
                         players_state[defender], order)
             else:
                 # Remove armies killed from their respective territories
@@ -215,7 +215,8 @@ def process_army_movement(map_wrapper: MapWrapper,
 
 
 # Update Player and Territory States following a Blockade order
-def process_blockade(map_wrapper: MapWrapper, territory_owners: Dict[int, int],
+def _process_blockade(map_wrapper: MapWrapper,
+        territory_owners: Dict[int, int], 
         players_state: Dict[int, PlayerStateWrapper], order: Order) -> None:
     blockader = players_state[order.player_id]
     territory_id = order.primary_territory_id
@@ -229,11 +230,11 @@ def process_blockade(map_wrapper: MapWrapper, territory_owners: Dict[int, int],
         blockader.player_state.armies_on_board -= (
             blockader.territories[territory_id])
 
-        process_territory_loss(map_wrapper, territory_owners, blockader, order)
+        _process_territory_loss(map_wrapper, territory_owners, blockader, order)
 
 
 # Return Player States data for a Game
-def parse_player_states(game_wrapper: GameWrapper) -> None:
+def _parse_player_states(game_wrapper: GameWrapper) -> None:
     template = cache.get_template(game_wrapper.game.template_id)
     map_wrapper = cache.get_map_wrapper(template.map_id, False)
 
@@ -263,22 +264,22 @@ def parse_player_states(game_wrapper: GameWrapper) -> None:
     for turn_wrapper in game_wrapper.turns:
         # Update players_state to current turn
         for player_state_wrapper in players_state.values():
-            set_player_state_wrapper_turn(player_state_wrapper, 
+            _set_player_state_wrapper_turn(player_state_wrapper, 
                 turn_wrapper.turn)
 
          # Process Orders
         for order in turn_wrapper.orders:
             if order.order_type_id in ['GameOrderPick', 'GameOrderAutoPick']:
-                process_pick(map_wrapper, territory_owners, players_state,
+                _process_pick(map_wrapper, territory_owners, players_state,
                     order)
             elif order.order_type_id == 'GameOrderDeploy':
-                process_deployment(map_wrapper, players_state, order)
+                _process_deployment(map_wrapper, players_state, order)
             elif order.order_type_id == 'GameOrderAttackTransfer':
-                process_army_movement(map_wrapper, territory_owners,
+                _process_army_movement(map_wrapper, territory_owners,
                     players_state, order)
             elif order.order_type_id in ['GameOrderPlayCardBlockade', 
                     'GameOrderPlayCardAbandon']:
-                process_blockade(map_wrapper, territory_owners, players_state,
+                _process_blockade(map_wrapper, territory_owners, players_state,
                     order)
             
             # No action required for ReceiveCard, StateTransition, Play
@@ -325,7 +326,7 @@ def calculate_game_data(max_games_to_process: int, batch_size:int = 5) -> int:
             logging.info(
                 f'Processing game {game.id}: Offset {counter}')
             
-            parse_player_states(GameWrapper(game))
+            _parse_player_states(GameWrapper(game))
             game.version = CURRENT_VERSION
             counter += 1
         
