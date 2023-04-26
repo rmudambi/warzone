@@ -1,3 +1,0 @@
-# warzone
-
-And another commit
